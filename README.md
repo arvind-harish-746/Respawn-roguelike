@@ -4,11 +4,11 @@
 
 ---
 
-## 🚀 Standalone Desktop Launchers
+## Standalone Desktop Launchers
 
 Quad Shot runs as a dedicated desktop application in its own chromeless window with self-healing runtime and asset recovery:
 
-### 🐧 Linux
+### Linux
 Run the native binary or launcher script:
 ```bash
 ./bin/quad_shot-linux
@@ -16,27 +16,26 @@ Run the native binary or launcher script:
 ./quad_shot.sh
 ```
 
-### 🪟 Windows (Direct Executable & Installer)
+### Windows (Direct Executable & Installer)
 Download or double-click **`quad_shot.exe`** right at the repository root:
 ```cmd
 quad_shot.exe
 ```
 > *Self-Healing Installer*: You can download **`quad_shot.exe`** on its own from GitHub without cloning the repo. On first run, it automatically unpacks all embedded assets and launches the game in a dedicated window.
 
-
-### 🍎 macOS
+### macOS
 Double-click `quad_shot.command` or run:
 ```bash
 ./bin/quad_shot-macos          # Intel x86_64
 ./bin/quad_shot-macos-arm64    # Apple Silicon M-Series
 ```
 
-### 🌐 Direct Browser Launch
+### Direct Browser Launch
 You can also open [index.html](file:///home/ashoka/Documents/Respawn/quad_shot/index.html) directly in any browser (Chrome, Firefox, Brave) via `file://` or run `python3 -m http.server 8080`.
 
 ---
 
-## 🕹️ Controls & Flight Manual
+## Controls & Flight Manual
 
 | Input | Action | Mechanic |
 | :--- | :--- | :--- |
@@ -54,7 +53,7 @@ You can also open [index.html](file:///home/ashoka/Documents/Respawn/quad_shot/i
 
 ---
 
-## ⚙️ Core Architecture & Game Systems
+## Core Architecture & Game Systems
 
 ### 1. Dual Physics System (Selectable via `Z`)
 - **Kinematic Frame**: Direct, instantaneous velocity response with zero rotational drift. Strict tactical angle management.
@@ -75,7 +74,7 @@ Centered around **The Origin Point (0,0)** Hub:
 
 ---
 
-## 🔬 Arsenal & Systems Summary
+## Arsenal & Systems Summary
 
 - **Weapons (Grades I to IV)**: Sine Rifle, Parabolic Mortar, Reflection Ray, Tangent Disc, Scalar Shotgun, Fractal Cluster, Asymptote Laser, Doppler Repeater.
 - **Traps**: Gravity Tether, Prism Mine, Möbius Snare, Vector Repulsor.
