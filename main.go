@@ -22,22 +22,30 @@ import (
 var embeddedAssets embed.FS
 
 // Self-healing asset verification and extraction
+// If run as a standalone downloaded executable, automatically installs all game assets
 func selfHealAssets() {
-	criticalFiles := []string{
-		"quad_shot/index.html",
-		"quad_shot/index.css",
-		"quad_shot/bundle.js",
-	}
-
-	for _, file := range criticalFiles {
-		if _, err := os.Stat(file); os.IsNotExist(err) {
-			data, readErr := embeddedAssets.ReadFile(file)
+	var unpackedCount int
+	_ = fs.WalkDir(embeddedAssets, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || path == "." {
+			return nil
+		}
+		if d.IsDir() {
+			_ = os.MkdirAll(path, 0755)
+			return nil
+		}
+		// Check if file exists on disk
+		if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+			data, readErr := embeddedAssets.ReadFile(path)
 			if readErr == nil {
-				_ = os.MkdirAll(filepath.Dir(file), 0755)
-				_ = os.WriteFile(file, data, 0644)
-				fmt.Printf("[Self-Heal] Restored missing file: %s\n", file)
+				_ = os.MkdirAll(filepath.Dir(path), 0755)
+				_ = os.WriteFile(path, data, 0644)
+				unpackedCount++
 			}
 		}
+		return nil
+	})
+	if unpackedCount > 0 {
+		fmt.Printf("[Self-Heal / Installer] Successfully verified and installed %d game assets.\n", unpackedCount)
 	}
 }
 

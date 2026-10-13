@@ -16,8 +16,8 @@ Respawn/
 ├── HANDOVER.md                    # This complete handover document
 ├── index.html                     # Root redirect entry point
 ├── main.go                        # Go-based self-healing desktop application runner & server
+├── quad_shot.exe                  # Root Windows self-contained executable & installer
 ├── quad_shot.sh                   # Linux executable launcher script
-├── quad_shot.bat                  # Windows batch launcher script
 ├── quad_shot.command              # macOS application launcher script
 ├── bin/                           # Compiled standalone native executables
 │   ├── quad_shot-linux            # Linux x86_64 native executable
@@ -98,10 +98,11 @@ The application runner (`main.go`) embeds the entire game distribution (`//go:em
 ```
 
 ### Windows
-Double click `quad_shot.bat` or run:
+Double click `quad_shot.exe` (or `bin\quad_shot-windows.exe`):
 ```cmd
-bin\quad_shot-windows.exe
+quad_shot.exe
 ```
+> *Standalone Installer*: A user can download `quad_shot.exe` on its own from GitHub. Running it automatically extracts missing game assets and launches the game in a dedicated window.
 
 ### macOS
 Double click `quad_shot.command` or run:

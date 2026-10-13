@@ -16,11 +16,13 @@ Run the native binary or launcher script:
 ./quad_shot.sh
 ```
 
-### 🪟 Windows
-Double-click `quad_shot.bat` or run:
+### 🪟 Windows (Direct Executable & Installer)
+Download or double-click **`quad_shot.exe`** right at the repository root:
 ```cmd
-bin\quad_shot-windows.exe
+quad_shot.exe
 ```
+> *Self-Healing Installer*: You can download **`quad_shot.exe`** on its own from GitHub without cloning the repo. On first run, it automatically unpacks all embedded assets and launches the game in a dedicated window.
+
 
 ### 🍎 macOS
 Double-click `quad_shot.command` or run:
