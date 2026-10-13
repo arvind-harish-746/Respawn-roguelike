@@ -13,6 +13,7 @@
     <div id="ui-overlay">
         <!-- Top Action Bar -->
         <div class="top-bar">
+            <button id="btn-combat-mode" class="btn-icon">🏹 RANGED [V]</button>
             <button id="btn-meta" class="btn-icon">⚡ META MATRIX [M]</button>
             <button id="btn-controls" class="btn-icon">⌨ CONTROLS [?]</button>
             <button id="btn-psycho" class="btn-icon">🌀 PSYCHO FX [P]</button>
@@ -128,6 +129,7 @@
                     <div class="control-item"><span class="key-badge">C</span><span>Apex Step (360° bullet-cancel shockwave)</span></div>
                     <div class="control-item"><span class="key-badge">1, 2, 3</span><span>Switch Primary Weapon Slot</span></div>
                     <div class="control-item"><span class="key-badge">E / F</span><span>Deploy Active Trap</span></div>
+                    <div class="control-item"><span class="key-badge">V</span><span>Toggle Melee vs Ranged Combat Mode</span></div>
                     <div class="control-item"><span class="key-badge">Z</span><span>Toggle Dual Physics (Kinematic / Inertial)</span></div>
                     <div class="control-item"><span class="key-badge">P</span><span>Toggle Psycho FX Distortion Mode</span></div>
                     <div class="control-item"><span class="key-badge">T</span><span>Toggle Cyberpunk Sprite vs Neon Stickman</span></div>
@@ -273,6 +275,14 @@
             const enabled = audio.toggle();
             btnAudio.innerText = enabled ? '🔊 AUDIO' : '🔇 MUTED';
         };
+
+        // Combat mode toggle button (Melee vs Ranged)
+        const btnCombatMode = document.getElementById('btn-combat-mode');
+        if (btnCombatMode) {
+            btnCombatMode.onclick = () => {
+                game.toggleCombatMode();
+            };
+        }
 
         // Canvas click on game over resets to Hub
         canvas.addEventListener('click', () => {

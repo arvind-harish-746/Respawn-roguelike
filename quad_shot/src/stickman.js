@@ -57,6 +57,10 @@ export class StickmanPlayer {
         // Neon Glow Color
         this.neonColor = '#00ffea'; // Cyan
         this.trailColor = '#ff007f'; // Magenta
+
+        // Weapon & Combat Visual Animation State
+        this.recoilOffset = 0;
+        this.muzzleFlashTimer = 0;
     }
 
     setPhysicsFrame(frame) {
@@ -282,9 +286,17 @@ export class StickmanPlayer {
             sw.radius = 20 + progress * (sw.maxRadius - 20);
             if (sw.life <= 0) this.shockwaves.splice(i, 1);
         }
+
+        // Weapon visual animation decay
+        if (this.recoilOffset > 0) {
+            this.recoilOffset = Math.max(0, this.recoilOffset - dt * 50);
+        }
+        if (this.muzzleFlashTimer > 0) {
+            this.muzzleFlashTimer -= dt;
+        }
     }
 
-    render(ctx) {
+    render(ctx, weaponDef = null, combatMode = 'RANGED', activeSlash = null, spriteMgr = null) {
         if (this.isDead) {
             // Render ragdoll
             ctx.save();
@@ -472,13 +484,32 @@ export class StickmanPlayer {
             ctx.lineTo(legSwing * 1.3 * facingSign, 22);
             ctx.stroke();
 
-            // Arms (aiming forward along aim angle)
+            // Arms & Weapon Grip
             const shoulderY = -torsoLen + 6;
             const armLen = 16;
-            const gunTipX = Math.cos(angle) * armLen * 1.3;
-            const gunTipY = shoulderY + Math.sin(angle) * armLen * 1.3;
 
-            // Firing arm
+            let gunTipX = Math.cos(angle) * (armLen * 1.3 - this.recoilOffset);
+            let gunTipY = shoulderY + Math.sin(angle) * (armLen * 1.3 - this.recoilOffset);
+            let weaponAngle = angle;
+            let weaponScale = 1.0;
+
+            if (combatMode === 'MELEE') {
+                if (activeSlash) {
+                    const swingProg = activeSlash.swingProgress || 0;
+                    weaponAngle = angle - activeSlash.arc / 2 + swingProg * activeSlash.arc;
+                    gunTipX = Math.cos(weaponAngle) * (armLen * 1.35);
+                    gunTipY = shoulderY + Math.sin(weaponAngle) * (armLen * 1.35);
+                    weaponAngle += Math.PI / 4;
+                    weaponScale = 1.2;
+                } else {
+                    const readyAngle = angle - 0.45 * facingSign;
+                    gunTipX = Math.cos(readyAngle) * (armLen * 0.9);
+                    gunTipY = shoulderY + Math.sin(readyAngle) * (armLen * 0.9);
+                    weaponAngle = angle + 0.35 * facingSign;
+                }
+            }
+
+            // Firing / Primary arm
             ctx.beginPath();
             ctx.moveTo(0, shoulderY);
             ctx.lineTo(gunTipX, gunTipY);
@@ -489,6 +520,38 @@ export class StickmanPlayer {
             ctx.moveTo(0, shoulderY);
             ctx.lineTo(gunTipX * 0.6, gunTipY * 0.6 + 5);
             ctx.stroke();
+
+            // Render Weapon Icon Sprite
+            if (weaponDef && spriteMgr && weaponDef.icon) {
+                const flipY = Math.cos(angle) < 0 && combatMode === 'RANGED';
+                spriteMgr.drawWeapon(ctx, weaponDef.icon, gunTipX, gunTipY, weaponAngle, weaponScale, weaponDef.color, flipY);
+
+                // Muzzle Flash in Ranged Mode
+                if (combatMode === 'RANGED' && this.muzzleFlashTimer > 0) {
+                    ctx.save();
+                    const muzzleX = gunTipX + Math.cos(angle) * 16;
+                    const muzzleY = gunTipY + Math.sin(angle) * 16;
+                    ctx.translate(muzzleX, muzzleY);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowBlur = 18;
+                    ctx.shadowColor = weaponDef.color || '#00ffea';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Muzzle spark lines
+                    ctx.strokeStyle = weaponDef.color || '#00ffea';
+                    ctx.lineWidth = 1.8;
+                    for (let s = 0; s < 4; s++) {
+                        const spkAngle = angle + (s - 1.5) * 0.55;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(Math.cos(spkAngle) * 12, Math.sin(spkAngle) * 12);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+            }
 
             // Origin Cross Marker on Chest
             ctx.lineWidth = 1.2;

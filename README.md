@@ -46,6 +46,7 @@ You can also open [index.html](file:///home/ashoka/Documents/Respawn/quad_shot/i
 | **C** | **Apex Step** | Double-jump shockwave pulse: cancels light bullets, knocks back enemies |
 | **1, 2, 3 / Q / Wheel** | Switch Primary Weapon | 3 slots: Sine Rifle, Reflection Ray, Mortar, Shotgun, etc. |
 | **E / F** | Deploy Active Trap | Gravity Tether, Prism Mine, Möbius Snare, Vector Repulsor |
+| **V** | **Combat Mode Toggle** | Switch between **Melee Mode** (weapon slash arcs & bullet-canceling cartoon effects) & **Ranged Mode** (mouse-aimed projectiles, waves, lasers) |
 | **Z** | **Dual Physics Toggle** | Switch between **Kinematic Frame** (zero drift) & **Inertial Frame** (momentum/drift) |
 | **P** | **Psycho FX Toggle** | Real-time chromatic distortion and reactive grid warping |
 | **T** | **Avatar View Toggle** | Switch between Cyberpunk Character Sprite (Null-7) and Neon Vector Stickman |

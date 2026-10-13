@@ -83,6 +83,49 @@ export class SoundEngine {
         osc.stop(now + (type === 'mortar' ? 0.26 : 0.13));
     }
 
+    playMeleeSlash(slashId = 1) {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        const baseF = 320 + ((slashId % 5) * 60);
+        osc.type = slashId % 2 === 0 ? 'sawtooth' : 'triangle';
+        osc.frequency.setValueAtTime(baseF * 1.8, now);
+        osc.frequency.exponentialRampToValueAtTime(75, now + 0.15);
+
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain);
+        osc.start(now);
+        osc.stop(now + 0.16);
+    }
+
+    playDeflect() {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1250, now);
+        osc.frequency.exponentialRampToValueAtTime(1850, now + 0.08);
+
+        gain.gain.setValueAtTime(0.38, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain);
+        osc.start(now);
+        osc.stop(now + 0.13);
+    }
+
     playExplosion(size = 1) {
         if (!this.enabled || !this.ctx) return;
         this.resume();

@@ -80,25 +80,36 @@ func fileExists(path string) bool {
 
 // Serve file either from physical disk (if present) or fallback to embedded assets
 func serveFileOrEmbedded(w http.ResponseWriter, r *http.Request, path string) {
+	candidates := []string{path}
+	if strings.HasPrefix(path, "sprites/release/") {
+		candidates = append(candidates, strings.Replace(path, "sprites/release/", "sprites/character-sprites/release/", 1))
+	} else if strings.HasPrefix(path, "sprites/character-sprites/release/") {
+		candidates = append(candidates, strings.Replace(path, "sprites/character-sprites/release/", "sprites/release/", 1))
+	}
+
 	// 1. Try physical disk
-	if fileExists(path) {
-		f, err := os.Open(path)
-		if err == nil {
-			defer f.Close()
-			stat, err := f.Stat()
-			if err == nil && !stat.IsDir() {
-				http.ServeContent(w, r, filepath.Base(path), stat.ModTime(), f)
-				return
+	for _, p := range candidates {
+		if fileExists(p) {
+			f, err := os.Open(p)
+			if err == nil {
+				defer f.Close()
+				stat, err := f.Stat()
+				if err == nil && !stat.IsDir() {
+					http.ServeContent(w, r, filepath.Base(p), stat.ModTime(), f)
+					return
+				}
 			}
 		}
 	}
 
 	// 2. Fallback to embedded assets
-	cleanEmbeddedPath := filepath.ToSlash(path)
-	data, err := embeddedAssets.ReadFile(cleanEmbeddedPath)
-	if err == nil {
-		http.ServeContent(w, r, filepath.Base(cleanEmbeddedPath), time.Time{}, bytes.NewReader(data))
-		return
+	for _, p := range candidates {
+		cleanEmbeddedPath := filepath.ToSlash(p)
+		data, err := embeddedAssets.ReadFile(cleanEmbeddedPath)
+		if err == nil {
+			http.ServeContent(w, r, filepath.Base(cleanEmbeddedPath), time.Time{}, bytes.NewReader(data))
+			return
+		}
 	}
 
 	http.NotFound(w, r)

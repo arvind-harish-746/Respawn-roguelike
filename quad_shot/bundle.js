@@ -262,6 +262,49 @@ class SoundEngine {
         osc.stop(now + (type === 'mortar' ? 0.26 : 0.13));
     }
 
+    playMeleeSlash(slashId = 1) {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        const baseF = 320 + ((slashId % 5) * 60);
+        osc.type = slashId % 2 === 0 ? 'sawtooth' : 'triangle';
+        osc.frequency.setValueAtTime(baseF * 1.8, now);
+        osc.frequency.exponentialRampToValueAtTime(75, now + 0.15);
+
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain);
+        osc.start(now);
+        osc.stop(now + 0.16);
+    }
+
+    playDeflect() {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1250, now);
+        osc.frequency.exponentialRampToValueAtTime(1850, now + 0.08);
+
+        gain.gain.setValueAtTime(0.38, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain);
+        osc.start(now);
+        osc.stop(now + 0.13);
+    }
+
     playExplosion(size = 1) {
         if (!this.enabled || !this.ctx) return;
         this.resume();
@@ -738,12 +781,27 @@ class CartesianGrid {
 
 
 // --- MODULE: sprite_manager.js ---
-// Quad Shot — Cyberpunk Sprite System
-// Integrates the 20 pre-baked cyberpunk characters from /sprites
+// Quad Shot — Cyberpunk Sprite & Visual Effects Engine
+// Integrates 20 character sheets, weapon icon sprites, and cartoon slash effect animations
+
+const SLASH_FRAME_COUNTS = {
+    1: 10,
+    2: 5,
+    3: 10,
+    4: 8,
+    5: 8,
+    6: 10,
+    7: 10,
+    8: 10,
+    9: 8,
+    10: 8
+};
 
 class SpriteManager {
     constructor() {
         this.cache = new Map();
+        this.weaponIcons = new Map();
+        this.slashEffects = new Map(); // slashId -> Array of Image
         this.roster = null;
         this.currentView = 'topdown'; // 'topdown' (twin-stick) or 'ortho' (isometric RPG)
         this.loaded = false;
@@ -751,7 +809,10 @@ class SpriteManager {
 
     async init() {
         try {
-            const resp = await fetch('sprites/release/roster.json');
+            let resp = await fetch('sprites/character-sprites/release/roster.json');
+            if (!resp.ok) {
+                resp = await fetch('sprites/release/roster.json');
+            }
             if (resp.ok) {
                 const data = await resp.json();
                 this.roster = data.roster;
@@ -760,8 +821,8 @@ class SpriteManager {
             console.warn('Roster fetch error, using defaults', e);
         }
 
-        // Preload key sheets for player and enemies
-        const preloadList = [
+        // 1. Preload key sheets for player and enemies
+        const preloadCharacters = [
             'VX-0024', // Null-7 (Player Origin Point)
             'VX-0001', // Neon Jack
             'VX-0012', // Cipher (Ray-Caster)
@@ -771,10 +832,25 @@ class SpriteManager {
             'VX-0240', // Glitch (Delta Swarm)
             'VX-0036', // Grit (Boss)
         ];
-
-        for (const seed of preloadList) {
+        for (const seed of preloadCharacters) {
             await this.loadCharacter(seed, this.currentView);
         }
+
+        // 2. Preload Weapon Icon Sprites (from sprites/weapon_sprites/1 Icons)
+        const weaponIcons = [
+            'Icon28_01.png', 'Icon28_05.png', 'Icon28_10.png', 'Icon28_15.png',
+            'Icon28_20.png', 'Icon28_25.png', 'Icon28_30.png', 'Icon28_35.png'
+        ];
+        for (const iconName of weaponIcons) {
+            await this.loadWeaponIcon(iconName);
+        }
+
+        // 3. Preload Slash Animation Effect Sequences (from sprites/slash-sprite-cartoon-effects/PNG)
+        const slashIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        for (const sId of slashIds) {
+            await this.loadSlashEffect(sId);
+        }
+
         this.loaded = true;
     }
 
@@ -782,7 +858,8 @@ class SpriteManager {
         const key = `${seed}_${view}`;
         if (this.cache.has(key)) return this.cache.get(key);
 
-        const pngUrl = `sprites/release/cyber/${seed}_${view}_sheet.png`;
+        const primaryUrl = `sprites/character-sprites/release/cyber/${seed}_${view}_sheet.png`;
+        const fallbackUrl = `sprites/release/cyber/${seed}_${view}_sheet.png`;
         const meta = {
             cellW: 56,
             cellH: 84,
@@ -798,8 +875,9 @@ class SpriteManager {
                 resolve(sheetData);
             };
             img.onerror = () => {
-                // Try fallback to ortho if topdown fails
-                if (view !== 'ortho') {
+                if (img.src.includes('character-sprites')) {
+                    img.src = fallbackUrl;
+                } else if (view !== 'ortho') {
                     const fallbackImg = new Image();
                     fallbackImg.onload = () => {
                         const sheetData = { image: fallbackImg, meta };
@@ -807,21 +885,67 @@ class SpriteManager {
                         resolve(sheetData);
                     };
                     fallbackImg.onerror = () => resolve(null);
-                    fallbackImg.src = `sprites/release/cyber/${seed}_ortho_sheet.png`;
+                    fallbackImg.src = `sprites/character-sprites/release/cyber/${seed}_ortho_sheet.png`;
                 } else {
+                    console.warn(`Could not load sprite sheet for ${seed}_${view}`);
                     resolve(null);
                 }
             };
-            img.src = pngUrl;
+            img.src = primaryUrl;
         });
     }
 
-    angleToRow(vx, vy, directions = 8) {
-        // Row 0 = facing down (screen Y+ = down)
-        // theta: 0 is down, Math.PI/2 is right, Math.PI is up, -Math.PI/2 is left
-        const theta = Math.atan2(vx, vy);
-        let d = Math.round((theta / (2 * Math.PI)) * directions);
-        return ((d % directions) + directions) % directions;
+    async loadWeaponIcon(iconFilename) {
+        if (this.weaponIcons.has(iconFilename)) {
+            return this.weaponIcons.get(iconFilename);
+        }
+
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                this.weaponIcons.set(iconFilename, img);
+                resolve(img);
+            };
+            img.onerror = () => {
+                console.warn(`Could not load weapon icon ${iconFilename}`);
+                resolve(null);
+            };
+            img.src = `sprites/weapon_sprites/1 Icons/${iconFilename}`;
+        });
+    }
+
+    getWeaponIcon(iconFilename) {
+        return this.weaponIcons.get(iconFilename) || null;
+    }
+
+    async loadSlashEffect(slashId) {
+        if (this.slashEffects.has(slashId)) {
+            return this.slashEffects.get(slashId);
+        }
+
+        const totalFrames = SLASH_FRAME_COUNTS[slashId] || 8;
+        const frames = [];
+
+        const promises = [];
+        for (let i = 1; i <= totalFrames; i++) {
+            const p = new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ index: i - 1, img });
+                img.onerror = () => resolve({ index: i - 1, img: null });
+                img.src = `sprites/slash-sprite-cartoon-effects/PNG/${slashId}/${i}.png`;
+            });
+            promises.push(p);
+        }
+
+        const loadedFrames = await Promise.all(promises);
+        loadedFrames.sort((a, b) => a.index - b.index);
+        const validFrames = loadedFrames.map(f => f.img).filter(Boolean);
+        this.slashEffects.set(slashId, validFrames);
+        return validFrames;
+    }
+
+    getSlashFrameCount(slashId) {
+        return SLASH_FRAME_COUNTS[slashId] || 8;
     }
 
     draw(ctx, seed, dirRow, frameIdx, x, y, scale = 0.65, glowColor = null) {
@@ -855,6 +979,65 @@ class SpriteManager {
         ctx.restore();
         return true;
     }
+
+    drawWeapon(ctx, iconFilename, x, y, angle, scale = 1.0, glowColor = null, flipped = false) {
+        const img = this.weaponIcons.get(iconFilename);
+        if (!img) return false;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        if (flipped) {
+            ctx.scale(1, -1);
+        }
+
+        ctx.imageSmoothingEnabled = false;
+
+        if (glowColor) {
+            ctx.shadowBlur = 14;
+            ctx.shadowColor = glowColor;
+        }
+
+        const w = 32 * scale;
+        const h = 32 * scale;
+        // Center the weapon at origin
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+
+        ctx.restore();
+        return true;
+    }
+
+    drawSlash(ctx, slashId, frameIdx, x, y, angle, scale = 0.35, glowColor = null) {
+        const frames = this.slashEffects.get(slashId);
+        if (!frames || frames.length === 0) return false;
+
+        const idx = Math.max(0, Math.min(frames.length - 1, frameIdx));
+        const img = frames[idx];
+        if (!img) return false;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+
+        if (glowColor) {
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = glowColor;
+        }
+
+        const w = 496 * scale;
+        const h = 496 * scale;
+        // Draw centered on origin
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+
+        ctx.restore();
+        return true;
+    }
+
+    angleToRow(vx, vy, directions = 8) {
+        const theta = Math.atan2(vx, vy);
+        let d = Math.round((theta / (2 * Math.PI)) * directions);
+        return ((d % directions) + directions) % directions;
+    }
 }
 
 const spriteManager = new SpriteManager();
@@ -869,9 +1052,16 @@ const WEAPON_DEFS = {
         name: 'Sine Rifle',
         grade: 'Grade I',
         type: 'Linear Wave',
+        icon: 'Icon28_01.png',
+        slashId: 1,
         desc: 'Fires alternating high-frequency sine-wave beam pulses.',
+        meleeDesc: 'High-frequency oscillating blade slash that cancels light projectiles.',
         cooldown: 0.16,
+        meleeCooldown: 0.22,
         baseDmg: 28,
+        meleeDmg: 55,
+        meleeRange: 90,
+        meleeArc: Math.PI * 0.65,
         color: '#00ffea',
         scrapValue: 25
     },
@@ -880,9 +1070,16 @@ const WEAPON_DEFS = {
         name: 'Parabolic Mortar',
         grade: 'Grade I',
         type: 'Arc Projectile',
+        icon: 'Icon28_05.png',
+        slashId: 3,
         desc: 'Fires explosive geometric shells along calculated arc trajectories.',
+        meleeDesc: 'Heavy explosive ground-cleave that detonates on impact.',
         cooldown: 0.85,
+        meleeCooldown: 0.55,
         baseDmg: 85,
+        meleeDmg: 120,
+        meleeRange: 110,
+        meleeArc: Math.PI * 0.75,
         radius: 120,
         color: '#ffaa00',
         scrapValue: 30
@@ -892,9 +1089,16 @@ const WEAPON_DEFS = {
         name: 'Reflection Ray',
         grade: 'Grade II',
         type: 'Multi-Bounce',
+        icon: 'Icon28_10.png',
+        slashId: 4,
         desc: 'High-velocity laser that ricochets off grid lines and enemy shields.',
+        meleeDesc: 'Prismatic laser katana that deflects enemy projectiles back at attackers.',
         cooldown: 0.28,
+        meleeCooldown: 0.28,
         baseDmg: 45,
+        meleeDmg: 70,
+        meleeRange: 95,
+        meleeArc: Math.PI * 0.7,
         maxBounces: 4,
         color: '#39ff14',
         scrapValue: 60
@@ -904,9 +1108,16 @@ const WEAPON_DEFS = {
         name: 'Tangent Disc',
         grade: 'Grade II',
         type: 'Cutting Ricochet',
+        icon: 'Icon28_15.png',
+        slashId: 6,
         desc: 'Slices along obstacle edges, accelerating with every tangential contact.',
+        meleeDesc: 'Whirling 360° circular blade sweep slicing all surrounding enemies.',
         cooldown: 0.45,
+        meleeCooldown: 0.35,
         baseDmg: 40,
+        meleeDmg: 65,
+        meleeRange: 105,
+        meleeArc: Math.PI * 2.0,
         color: '#ffff00',
         scrapValue: 70
     },
@@ -915,9 +1126,16 @@ const WEAPON_DEFS = {
         name: 'Scalar Shotgun',
         grade: 'Grade III',
         type: 'Area Spread',
+        icon: 'Icon28_20.png',
+        slashId: 7,
         desc: 'Fires cone-shaped bursts of vector points that widen and slow down over distance.',
+        meleeDesc: 'Massive kinetic fan swing with enormous knockback force.',
         cooldown: 0.65,
+        meleeCooldown: 0.45,
         baseDmg: 22, // per pellet (8 pellets)
+        meleeDmg: 95,
+        meleeRange: 95,
+        meleeArc: Math.PI * 0.85,
         pellets: 8,
         color: '#ff007f',
         scrapValue: 150
@@ -927,9 +1145,16 @@ const WEAPON_DEFS = {
         name: 'Fractal Cluster',
         grade: 'Grade III',
         type: 'Explosive Split',
+        icon: 'Icon28_25.png',
+        slashId: 8,
         desc: 'Grenade that recursively splits into smaller sub-explosions upon impact.',
+        meleeDesc: 'Dimensional cleave that fractures into secondary cutting shards.',
         cooldown: 0.9,
+        meleeCooldown: 0.48,
         baseDmg: 90,
+        meleeDmg: 110,
+        meleeRange: 100,
+        meleeArc: Math.PI * 0.7,
         color: '#9d00ff',
         scrapValue: 180
     },
@@ -938,9 +1163,16 @@ const WEAPON_DEFS = {
         name: 'Asymptote Laser',
         grade: 'Grade IV',
         type: 'Continuous Beam',
+        icon: 'Icon28_30.png',
+        slashId: 9,
         desc: 'Continuous beam that increases damage infinitely the longer it hits a single target.',
+        meleeDesc: 'Superheated beam-saber thrust with infinite penetration.',
         cooldown: 0.05,
+        meleeCooldown: 0.14,
         baseDmg: 15,
+        meleeDmg: 48,
+        meleeRange: 120,
+        meleeArc: Math.PI * 0.5,
         color: '#00ffff',
         scrapValue: 350
     },
@@ -949,9 +1181,16 @@ const WEAPON_DEFS = {
         name: 'Doppler Repeater',
         grade: 'Grade IV',
         type: 'Velocity Scale',
+        icon: 'Icon28_35.png',
+        slashId: 10,
         desc: 'Rapid-fire bolt weapon whose damage scales directly with player movement speed.',
+        meleeDesc: 'Supersonic twin-blade flurry whose damage multiplies with player movement speed.',
         cooldown: 0.1,
+        meleeCooldown: 0.16,
         baseDmg: 32,
+        meleeDmg: 62,
+        meleeRange: 85,
+        meleeArc: Math.PI * 0.65,
         color: '#ff0055',
         scrapValue: 380
     }
@@ -1329,6 +1568,10 @@ class StickmanPlayer {
         // Neon Glow Color
         this.neonColor = '#00ffea'; // Cyan
         this.trailColor = '#ff007f'; // Magenta
+
+        // Weapon & Combat Visual Animation State
+        this.recoilOffset = 0;
+        this.muzzleFlashTimer = 0;
     }
 
     setPhysicsFrame(frame) {
@@ -1554,9 +1797,17 @@ class StickmanPlayer {
             sw.radius = 20 + progress * (sw.maxRadius - 20);
             if (sw.life <= 0) this.shockwaves.splice(i, 1);
         }
+
+        // Weapon visual animation decay
+        if (this.recoilOffset > 0) {
+            this.recoilOffset = Math.max(0, this.recoilOffset - dt * 50);
+        }
+        if (this.muzzleFlashTimer > 0) {
+            this.muzzleFlashTimer -= dt;
+        }
     }
 
-    render(ctx) {
+    render(ctx, weaponDef = null, combatMode = 'RANGED', activeSlash = null, spriteMgr = null) {
         if (this.isDead) {
             // Render ragdoll
             ctx.save();
@@ -1744,13 +1995,32 @@ class StickmanPlayer {
             ctx.lineTo(legSwing * 1.3 * facingSign, 22);
             ctx.stroke();
 
-            // Arms (aiming forward along aim angle)
+            // Arms & Weapon Grip
             const shoulderY = -torsoLen + 6;
             const armLen = 16;
-            const gunTipX = Math.cos(angle) * armLen * 1.3;
-            const gunTipY = shoulderY + Math.sin(angle) * armLen * 1.3;
 
-            // Firing arm
+            let gunTipX = Math.cos(angle) * (armLen * 1.3 - this.recoilOffset);
+            let gunTipY = shoulderY + Math.sin(angle) * (armLen * 1.3 - this.recoilOffset);
+            let weaponAngle = angle;
+            let weaponScale = 1.0;
+
+            if (combatMode === 'MELEE') {
+                if (activeSlash) {
+                    const swingProg = activeSlash.swingProgress || 0;
+                    weaponAngle = angle - activeSlash.arc / 2 + swingProg * activeSlash.arc;
+                    gunTipX = Math.cos(weaponAngle) * (armLen * 1.35);
+                    gunTipY = shoulderY + Math.sin(weaponAngle) * (armLen * 1.35);
+                    weaponAngle += Math.PI / 4;
+                    weaponScale = 1.2;
+                } else {
+                    const readyAngle = angle - 0.45 * facingSign;
+                    gunTipX = Math.cos(readyAngle) * (armLen * 0.9);
+                    gunTipY = shoulderY + Math.sin(readyAngle) * (armLen * 0.9);
+                    weaponAngle = angle + 0.35 * facingSign;
+                }
+            }
+
+            // Firing / Primary arm
             ctx.beginPath();
             ctx.moveTo(0, shoulderY);
             ctx.lineTo(gunTipX, gunTipY);
@@ -1761,6 +2031,38 @@ class StickmanPlayer {
             ctx.moveTo(0, shoulderY);
             ctx.lineTo(gunTipX * 0.6, gunTipY * 0.6 + 5);
             ctx.stroke();
+
+            // Render Weapon Icon Sprite
+            if (weaponDef && spriteMgr && weaponDef.icon) {
+                const flipY = Math.cos(angle) < 0 && combatMode === 'RANGED';
+                spriteMgr.drawWeapon(ctx, weaponDef.icon, gunTipX, gunTipY, weaponAngle, weaponScale, weaponDef.color, flipY);
+
+                // Muzzle Flash in Ranged Mode
+                if (combatMode === 'RANGED' && this.muzzleFlashTimer > 0) {
+                    ctx.save();
+                    const muzzleX = gunTipX + Math.cos(angle) * 16;
+                    const muzzleY = gunTipY + Math.sin(angle) * 16;
+                    ctx.translate(muzzleX, muzzleY);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowBlur = 18;
+                    ctx.shadowColor = weaponDef.color || '#00ffea';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Muzzle spark lines
+                    ctx.strokeStyle = weaponDef.color || '#00ffea';
+                    ctx.lineWidth = 1.8;
+                    for (let s = 0; s < 4; s++) {
+                        const spkAngle = angle + (s - 1.5) * 0.55;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(Math.cos(spkAngle) * 12, Math.sin(spkAngle) * 12);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+            }
 
             // Origin Cross Marker on Chest
             ctx.lineWidth = 1.2;
@@ -2609,6 +2911,9 @@ class Game {
         }
         this.activeWeaponIdx = 0;
         this.weaponCooldown = 0;
+        this.meleeCooldown = 0;
+        this.combatMode = 'RANGED'; // 'RANGED' or 'MELEE'
+        this.activeSlashes = [];
 
         this.traps = ['GRAVITY_TETHER'];
         this.activeTrapIdx = 0;
@@ -2738,6 +3043,11 @@ class Game {
                 this.player.setPhysicsFrame(nextFrame);
                 audio.playLaser('reflection');
             }
+
+            // Toggle Melee vs Ranged Combat Mode: V
+            if (k === 'v') {
+                this.toggleCombatMode();
+            }
         });
 
         window.addEventListener('keyup', (e) => {
@@ -2850,12 +3160,59 @@ class Game {
         }
     }
 
+    toggleCombatMode() {
+        this.combatMode = this.combatMode === 'RANGED' ? 'MELEE' : 'RANGED';
+        if (audio) {
+            audio.playLaser(this.combatMode === 'MELEE' ? 'reflection' : 'sine');
+        }
+        const btn = document.getElementById('btn-combat-mode');
+        if (btn) {
+            btn.innerText = this.combatMode === 'MELEE' ? '⚔ MELEE [V]' : '🏹 RANGED [V]';
+            btn.classList.toggle('active', this.combatMode === 'MELEE');
+        }
+    }
+
+    executeMeleeAttack() {
+        const wId = this.weapons[this.activeWeaponIdx];
+        const def = WEAPON_DEFS[wId];
+        if (!def || this.meleeCooldown > 0) return;
+
+        this.meleeCooldown = def.meleeCooldown || 0.22;
+        this.player.combatPose = 'SLASH';
+        this.player.poseTimer = 0.22;
+
+        const slashId = def.slashId || 1;
+        const slash = {
+            pos: this.player.pos.clone(),
+            angle: this.player.aimAngle,
+            slashId: slashId,
+            frame: 0,
+            totalFrames: spriteManager.getSlashFrameCount(slashId),
+            frameTimer: 0,
+            frameDuration: 0.024,
+            radius: def.meleeRange || 90,
+            arc: def.meleeArc || Math.PI * 0.7,
+            damage: def.meleeDmg || 60,
+            color: def.color || '#00ffea',
+            hitEnemies: new Set(),
+            weaponId: def.id,
+            swingProgress: 0
+        };
+
+        this.activeSlashes.push(slash);
+        audio.playMeleeSlash(slashId);
+        if (this.grid) this.grid.applyImpulse(this.player.pos.x, this.player.pos.y, 200, 35);
+    }
+
     fireActiveWeapon() {
         const wId = this.weapons[this.activeWeaponIdx];
         const def = WEAPON_DEFS[wId];
         if (!def || this.weaponCooldown > 0) return;
 
         this.weaponCooldown = def.cooldown;
+        this.player.recoilOffset = 9;
+        this.player.muzzleFlashTimer = 0.06;
+
         const aimDir = this.player.facing.clone();
         const fireOrigin = Vec2.add(this.player.pos, aimDir.clone().scale(25));
 
@@ -3071,10 +3428,115 @@ class Game {
         const inputVec = this.getInputVector();
         this.player.update(dt, inputVec, this.worldMousePos, this.worldBounds, currentBiome);
 
-        // Player shooting
+        // Player attack (Ranged shooting or Melee slashing)
         if (this.weaponCooldown > 0) this.weaponCooldown -= dt;
-        if (this.isMouseDown && this.state === 'COMBAT') {
-            this.fireActiveWeapon();
+        if (this.meleeCooldown > 0) this.meleeCooldown -= dt;
+        if (this.isMouseDown && (this.state === 'COMBAT' || this.state === 'HUB')) {
+            if (this.combatMode === 'RANGED') {
+                this.fireActiveWeapon();
+            } else {
+                this.executeMeleeAttack();
+            }
+        }
+
+        // Update Active Melee Slashes
+        for (let i = this.activeSlashes.length - 1; i >= 0; i--) {
+            const sl = this.activeSlashes[i];
+            sl.frameTimer += dt;
+            if (sl.frameTimer >= sl.frameDuration) {
+                sl.frameTimer -= sl.frameDuration;
+                sl.frame++;
+            }
+            sl.swingProgress = sl.frame / sl.totalFrames;
+            sl.pos = Vec2.add(this.player.pos, Vec2.fromAngle(sl.angle, 18));
+
+            // Collision check against enemies
+            for (const e of this.enemies) {
+                if (e.isDead || sl.hitEnemies.has(e)) continue;
+                const toEnemy = Vec2.sub(e.pos, this.player.pos);
+                const dist = toEnemy.mag();
+                if (dist <= sl.radius + (e.radius || 15)) {
+                    let diffAngle = Math.abs(toEnemy.angle() - sl.angle);
+                    while (diffAngle > Math.PI) diffAngle = Math.abs(diffAngle - 2 * Math.PI);
+
+                    if (diffAngle <= sl.arc / 2 || sl.arc >= Math.PI * 1.9) {
+                        sl.hitEnemies.add(e);
+                        let dmg = sl.damage;
+                        if (sl.weaponId === 'DOPPLER_REPEATER') {
+                            dmg = Math.round(dmg * (1 + this.player.vel.mag() / this.player.baseSpeed));
+                        }
+                        const flankAngle = getFlankingAngle(this.player.pos, e.pos, e.facing ? e.facing.angle() : 0);
+                        const critChance = calculateFlankCritChance(flankAngle);
+                        const isCrit = Math.random() < critChance;
+                        if (isCrit) dmg = Math.round(dmg * 2.0);
+
+                        e.takeDamage(dmg, isCrit, this);
+                        if (e.vel) e.vel.add(Vec2.fromAngle(sl.angle, 350));
+                        if (this.grid) this.grid.applyImpulse(e.pos.x, e.pos.y, 220, 30);
+
+                        for (let p = 0; p < 8; p++) {
+                            this.particles.push({
+                                pos: e.pos.clone(),
+                                vel: Vec2.fromAngle(sl.angle + (Math.random() - 0.5) * 1.2, 120 + Math.random() * 200),
+                                color: sl.color,
+                                life: 0.35,
+                                maxLife: 0.35,
+                                size: 3
+                            });
+                        }
+
+                        if (sl.weaponId === 'FRACTAL_CLUSTER') {
+                            this.projectiles.push(new Projectile({
+                                pos: e.pos.clone(),
+                                vel: Vec2.fromAngle(sl.angle + (Math.random() - 0.5) * 1.5, 300),
+                                type: 'FRACTAL',
+                                damage: 35,
+                                color: sl.color,
+                                splitGen: 1,
+                                life: 0.4
+                            }));
+                        }
+                    }
+                }
+            }
+
+            // Deflect / Cancel Hostile Projectiles
+            for (let pIdx = this.projectiles.length - 1; pIdx >= 0; pIdx--) {
+                const proj = this.projectiles[pIdx];
+                if (proj.isDead || !proj.isHostile) continue;
+                const toProj = Vec2.sub(proj.pos, this.player.pos);
+                const pDist = toProj.mag();
+                if (pDist <= sl.radius + 15) {
+                    let diffA = Math.abs(toProj.angle() - sl.angle);
+                    while (diffA > Math.PI) diffA = Math.abs(diffA - 2 * Math.PI);
+                    if (diffA <= sl.arc / 2 || sl.arc >= Math.PI * 1.9) {
+                        if (sl.weaponId === 'REFLECTION_RAY') {
+                            proj.isHostile = false;
+                            proj.vel.scale(-1.2);
+                            proj.color = '#39ff14';
+                            proj.damage = 45;
+                            audio.playDeflect();
+                        } else {
+                            proj.isDead = true;
+                            audio.playDeflect();
+                            for (let p = 0; p < 5; p++) {
+                                this.particles.push({
+                                    pos: proj.pos.clone(),
+                                    vel: Vec2.fromAngle(Math.random() * Math.PI * 2, 80 + Math.random() * 100),
+                                    color: '#00ffea',
+                                    life: 0.25,
+                                    maxLife: 0.25,
+                                    size: 2.5
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (sl.frame >= sl.totalFrames) {
+                this.activeSlashes.splice(i, 1);
+            }
         }
 
         // Trap recharge timers
@@ -3461,8 +3923,15 @@ class Game {
         // 6. Render Projectiles
         this.projectiles.forEach(p => p.render(ctx));
 
+        // 6.5 Render Active Melee Slashes
+        this.activeSlashes.forEach(sl => {
+            spriteManager.drawSlash(ctx, sl.slashId, sl.frame, sl.pos.x, sl.pos.y, sl.angle, sl.radius / 190, sl.color);
+        });
+
         // 7. Render Player Stickman / Sprite
-        this.player.render(ctx);
+        const activeWDef = WEAPON_DEFS[this.weapons[this.activeWeaponIdx]];
+        const currentSlash = this.activeSlashes.length > 0 ? this.activeSlashes[this.activeSlashes.length - 1] : null;
+        this.player.render(ctx, activeWDef, this.combatMode, currentSlash, spriteManager);
 
         ctx.restore();
         // End Camera Transformation
@@ -3547,18 +4016,33 @@ class Game {
         ctx.font = '13px "JetBrains Mono", monospace';
         ctx.fillText(`VERTICES: ${this.meta.vertices}`, this.width - 20, 82);
 
-        // Weapon Loadout (Bottom-Left)
+        // Weapon Loadout & Combat Mode (Bottom-Left)
         ctx.textAlign = 'left';
-        ctx.fillStyle = 'rgba(0, 15, 30, 0.7)';
-        ctx.fillRect(20, this.height - 70, 320, 50);
-        ctx.strokeRect(20, this.height - 70, 320, 50);
+        ctx.fillStyle = 'rgba(0, 15, 30, 0.75)';
+        ctx.fillRect(20, this.height - 92, 370, 78);
+        ctx.strokeStyle = this.combatMode === 'MELEE' ? '#ff007f' : '#00ffea';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(20, this.height - 92, 370, 78);
+
+        // Combat Mode Header
+        ctx.fillStyle = this.combatMode === 'MELEE' ? '#ff007f' : '#00ffea';
+        ctx.font = 'bold 12px "JetBrains Mono", monospace';
+        ctx.fillText(`[V] COMBAT MODE: ${this.combatMode === 'MELEE' ? '⚔ MELEE (SLASH & DEFLECT)' : '🏹 RANGED (AIM & FIRE)'}`, 30, this.height - 74);
 
         this.weapons.forEach((wId, idx) => {
             const def = WEAPON_DEFS[wId];
             const isActive = idx === this.activeWeaponIdx;
+            const yPos = this.height - 54 + idx * 18;
+
+            // Draw weapon icon
+            if (spriteManager && def.icon) {
+                spriteManager.drawWeapon(ctx, def.icon, 38, yPos - 3, 0, 0.55, isActive ? def.color : null);
+            }
+
             ctx.fillStyle = isActive ? def.color : '#666666';
-            ctx.font = (isActive ? 'bold 13px' : '11px') + ' "JetBrains Mono", monospace';
-            ctx.fillText(`[${idx + 1}] ${def.name} (${def.grade})`, 30, this.height - 48 + idx * 16);
+            ctx.font = (isActive ? 'bold 12px' : '11px') + ' "JetBrains Mono", monospace';
+            const statText = this.combatMode === 'MELEE' ? `Melee ${def.meleeDmg} DMG` : `${def.type} (${def.baseDmg} DMG)`;
+            ctx.fillText(`[${idx + 1}] ${def.name} — ${statText}`, 54, yPos);
         });
 
         // Traps Indicator (Bottom-Right)

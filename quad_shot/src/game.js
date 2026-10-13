@@ -50,6 +50,9 @@ export class Game {
         }
         this.activeWeaponIdx = 0;
         this.weaponCooldown = 0;
+        this.meleeCooldown = 0;
+        this.combatMode = 'RANGED'; // 'RANGED' or 'MELEE'
+        this.activeSlashes = [];
 
         this.traps = ['GRAVITY_TETHER'];
         this.activeTrapIdx = 0;
@@ -179,6 +182,11 @@ export class Game {
                 this.player.setPhysicsFrame(nextFrame);
                 audio.playLaser('reflection');
             }
+
+            // Toggle Melee vs Ranged Combat Mode: V
+            if (k === 'v') {
+                this.toggleCombatMode();
+            }
         });
 
         window.addEventListener('keyup', (e) => {
@@ -291,12 +299,59 @@ export class Game {
         }
     }
 
+    toggleCombatMode() {
+        this.combatMode = this.combatMode === 'RANGED' ? 'MELEE' : 'RANGED';
+        if (audio) {
+            audio.playLaser(this.combatMode === 'MELEE' ? 'reflection' : 'sine');
+        }
+        const btn = document.getElementById('btn-combat-mode');
+        if (btn) {
+            btn.innerText = this.combatMode === 'MELEE' ? '⚔ MELEE [V]' : '🏹 RANGED [V]';
+            btn.classList.toggle('active', this.combatMode === 'MELEE');
+        }
+    }
+
+    executeMeleeAttack() {
+        const wId = this.weapons[this.activeWeaponIdx];
+        const def = WEAPON_DEFS[wId];
+        if (!def || this.meleeCooldown > 0) return;
+
+        this.meleeCooldown = def.meleeCooldown || 0.22;
+        this.player.combatPose = 'SLASH';
+        this.player.poseTimer = 0.22;
+
+        const slashId = def.slashId || 1;
+        const slash = {
+            pos: this.player.pos.clone(),
+            angle: this.player.aimAngle,
+            slashId: slashId,
+            frame: 0,
+            totalFrames: spriteManager.getSlashFrameCount(slashId),
+            frameTimer: 0,
+            frameDuration: 0.024,
+            radius: def.meleeRange || 90,
+            arc: def.meleeArc || Math.PI * 0.7,
+            damage: def.meleeDmg || 60,
+            color: def.color || '#00ffea',
+            hitEnemies: new Set(),
+            weaponId: def.id,
+            swingProgress: 0
+        };
+
+        this.activeSlashes.push(slash);
+        audio.playMeleeSlash(slashId);
+        if (this.grid) this.grid.applyImpulse(this.player.pos.x, this.player.pos.y, 200, 35);
+    }
+
     fireActiveWeapon() {
         const wId = this.weapons[this.activeWeaponIdx];
         const def = WEAPON_DEFS[wId];
         if (!def || this.weaponCooldown > 0) return;
 
         this.weaponCooldown = def.cooldown;
+        this.player.recoilOffset = 9;
+        this.player.muzzleFlashTimer = 0.06;
+
         const aimDir = this.player.facing.clone();
         const fireOrigin = Vec2.add(this.player.pos, aimDir.clone().scale(25));
 
@@ -512,10 +567,115 @@ export class Game {
         const inputVec = this.getInputVector();
         this.player.update(dt, inputVec, this.worldMousePos, this.worldBounds, currentBiome);
 
-        // Player shooting
+        // Player attack (Ranged shooting or Melee slashing)
         if (this.weaponCooldown > 0) this.weaponCooldown -= dt;
-        if (this.isMouseDown && this.state === 'COMBAT') {
-            this.fireActiveWeapon();
+        if (this.meleeCooldown > 0) this.meleeCooldown -= dt;
+        if (this.isMouseDown && (this.state === 'COMBAT' || this.state === 'HUB')) {
+            if (this.combatMode === 'RANGED') {
+                this.fireActiveWeapon();
+            } else {
+                this.executeMeleeAttack();
+            }
+        }
+
+        // Update Active Melee Slashes
+        for (let i = this.activeSlashes.length - 1; i >= 0; i--) {
+            const sl = this.activeSlashes[i];
+            sl.frameTimer += dt;
+            if (sl.frameTimer >= sl.frameDuration) {
+                sl.frameTimer -= sl.frameDuration;
+                sl.frame++;
+            }
+            sl.swingProgress = sl.frame / sl.totalFrames;
+            sl.pos = Vec2.add(this.player.pos, Vec2.fromAngle(sl.angle, 18));
+
+            // Collision check against enemies
+            for (const e of this.enemies) {
+                if (e.isDead || sl.hitEnemies.has(e)) continue;
+                const toEnemy = Vec2.sub(e.pos, this.player.pos);
+                const dist = toEnemy.mag();
+                if (dist <= sl.radius + (e.radius || 15)) {
+                    let diffAngle = Math.abs(toEnemy.angle() - sl.angle);
+                    while (diffAngle > Math.PI) diffAngle = Math.abs(diffAngle - 2 * Math.PI);
+
+                    if (diffAngle <= sl.arc / 2 || sl.arc >= Math.PI * 1.9) {
+                        sl.hitEnemies.add(e);
+                        let dmg = sl.damage;
+                        if (sl.weaponId === 'DOPPLER_REPEATER') {
+                            dmg = Math.round(dmg * (1 + this.player.vel.mag() / this.player.baseSpeed));
+                        }
+                        const flankAngle = getFlankingAngle(this.player.pos, e.pos, e.facing ? e.facing.angle() : 0);
+                        const critChance = calculateFlankCritChance(flankAngle);
+                        const isCrit = Math.random() < critChance;
+                        if (isCrit) dmg = Math.round(dmg * 2.0);
+
+                        e.takeDamage(dmg, isCrit, this);
+                        if (e.vel) e.vel.add(Vec2.fromAngle(sl.angle, 350));
+                        if (this.grid) this.grid.applyImpulse(e.pos.x, e.pos.y, 220, 30);
+
+                        for (let p = 0; p < 8; p++) {
+                            this.particles.push({
+                                pos: e.pos.clone(),
+                                vel: Vec2.fromAngle(sl.angle + (Math.random() - 0.5) * 1.2, 120 + Math.random() * 200),
+                                color: sl.color,
+                                life: 0.35,
+                                maxLife: 0.35,
+                                size: 3
+                            });
+                        }
+
+                        if (sl.weaponId === 'FRACTAL_CLUSTER') {
+                            this.projectiles.push(new Projectile({
+                                pos: e.pos.clone(),
+                                vel: Vec2.fromAngle(sl.angle + (Math.random() - 0.5) * 1.5, 300),
+                                type: 'FRACTAL',
+                                damage: 35,
+                                color: sl.color,
+                                splitGen: 1,
+                                life: 0.4
+                            }));
+                        }
+                    }
+                }
+            }
+
+            // Deflect / Cancel Hostile Projectiles
+            for (let pIdx = this.projectiles.length - 1; pIdx >= 0; pIdx--) {
+                const proj = this.projectiles[pIdx];
+                if (proj.isDead || !proj.isHostile) continue;
+                const toProj = Vec2.sub(proj.pos, this.player.pos);
+                const pDist = toProj.mag();
+                if (pDist <= sl.radius + 15) {
+                    let diffA = Math.abs(toProj.angle() - sl.angle);
+                    while (diffA > Math.PI) diffA = Math.abs(diffA - 2 * Math.PI);
+                    if (diffA <= sl.arc / 2 || sl.arc >= Math.PI * 1.9) {
+                        if (sl.weaponId === 'REFLECTION_RAY') {
+                            proj.isHostile = false;
+                            proj.vel.scale(-1.2);
+                            proj.color = '#39ff14';
+                            proj.damage = 45;
+                            audio.playDeflect();
+                        } else {
+                            proj.isDead = true;
+                            audio.playDeflect();
+                            for (let p = 0; p < 5; p++) {
+                                this.particles.push({
+                                    pos: proj.pos.clone(),
+                                    vel: Vec2.fromAngle(Math.random() * Math.PI * 2, 80 + Math.random() * 100),
+                                    color: '#00ffea',
+                                    life: 0.25,
+                                    maxLife: 0.25,
+                                    size: 2.5
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (sl.frame >= sl.totalFrames) {
+                this.activeSlashes.splice(i, 1);
+            }
         }
 
         // Trap recharge timers
@@ -902,8 +1062,15 @@ export class Game {
         // 6. Render Projectiles
         this.projectiles.forEach(p => p.render(ctx));
 
+        // 6.5 Render Active Melee Slashes
+        this.activeSlashes.forEach(sl => {
+            spriteManager.drawSlash(ctx, sl.slashId, sl.frame, sl.pos.x, sl.pos.y, sl.angle, sl.radius / 190, sl.color);
+        });
+
         // 7. Render Player Stickman / Sprite
-        this.player.render(ctx);
+        const activeWDef = WEAPON_DEFS[this.weapons[this.activeWeaponIdx]];
+        const currentSlash = this.activeSlashes.length > 0 ? this.activeSlashes[this.activeSlashes.length - 1] : null;
+        this.player.render(ctx, activeWDef, this.combatMode, currentSlash, spriteManager);
 
         ctx.restore();
         // End Camera Transformation
@@ -988,18 +1155,33 @@ export class Game {
         ctx.font = '13px "JetBrains Mono", monospace';
         ctx.fillText(`VERTICES: ${this.meta.vertices}`, this.width - 20, 82);
 
-        // Weapon Loadout (Bottom-Left)
+        // Weapon Loadout & Combat Mode (Bottom-Left)
         ctx.textAlign = 'left';
-        ctx.fillStyle = 'rgba(0, 15, 30, 0.7)';
-        ctx.fillRect(20, this.height - 70, 320, 50);
-        ctx.strokeRect(20, this.height - 70, 320, 50);
+        ctx.fillStyle = 'rgba(0, 15, 30, 0.75)';
+        ctx.fillRect(20, this.height - 92, 370, 78);
+        ctx.strokeStyle = this.combatMode === 'MELEE' ? '#ff007f' : '#00ffea';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(20, this.height - 92, 370, 78);
+
+        // Combat Mode Header
+        ctx.fillStyle = this.combatMode === 'MELEE' ? '#ff007f' : '#00ffea';
+        ctx.font = 'bold 12px "JetBrains Mono", monospace';
+        ctx.fillText(`[V] COMBAT MODE: ${this.combatMode === 'MELEE' ? '⚔ MELEE (SLASH & DEFLECT)' : '🏹 RANGED (AIM & FIRE)'}`, 30, this.height - 74);
 
         this.weapons.forEach((wId, idx) => {
             const def = WEAPON_DEFS[wId];
             const isActive = idx === this.activeWeaponIdx;
+            const yPos = this.height - 54 + idx * 18;
+
+            // Draw weapon icon
+            if (spriteManager && def.icon) {
+                spriteManager.drawWeapon(ctx, def.icon, 38, yPos - 3, 0, 0.55, isActive ? def.color : null);
+            }
+
             ctx.fillStyle = isActive ? def.color : '#666666';
-            ctx.font = (isActive ? 'bold 13px' : '11px') + ' "JetBrains Mono", monospace';
-            ctx.fillText(`[${idx + 1}] ${def.name} (${def.grade})`, 30, this.height - 48 + idx * 16);
+            ctx.font = (isActive ? 'bold 12px' : '11px') + ' "JetBrains Mono", monospace';
+            const statText = this.combatMode === 'MELEE' ? `Melee ${def.meleeDmg} DMG` : `${def.type} (${def.baseDmg} DMG)`;
+            ctx.fillText(`[${idx + 1}] ${def.name} — ${statText}`, 54, yPos);
         });
 
         // Traps Indicator (Bottom-Right)
