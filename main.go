@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"embed"
 	"flag"
 	"fmt"
-	"io"
 	"io/fs"
 	"net"
 	"net/http"
@@ -22,37 +22,93 @@ import (
 var embeddedAssets embed.FS
 
 // Self-healing asset verification and extraction
-// If run as a standalone downloaded executable, automatically installs all game assets
+// When run as a standalone downloaded executable, automatically installs/repairs all game assets
 func selfHealAssets() {
+	// If assets already exist in working directory or parent directory, skip extraction
+	if fileExists("quad_shot/index.html") || fileExists("../quad_shot/index.html") {
+		return
+	}
+
+	exePath, err := os.Executable()
+	baseDir := "."
+	if err == nil {
+		if realPath, evalErr := filepath.EvalSymlinks(exePath); evalErr == nil {
+			baseDir = filepath.Dir(realPath)
+		} else {
+			baseDir = filepath.Dir(exePath)
+		}
+	}
+
 	var unpackedCount int
-	_ = fs.WalkDir(embeddedAssets, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || path == "." {
+	_ = fs.WalkDir(embeddedAssets, ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil || path == "." {
 			return nil
 		}
+
+		targetPath := filepath.Join(baseDir, filepath.FromSlash(path))
+
 		if d.IsDir() {
-			_ = os.MkdirAll(path, 0755)
+			_ = os.MkdirAll(targetPath, 0755)
 			return nil
 		}
+
 		// Check if file exists on disk
-		if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+		if _, statErr := os.Stat(targetPath); os.IsNotExist(statErr) {
 			data, readErr := embeddedAssets.ReadFile(path)
 			if readErr == nil {
-				_ = os.MkdirAll(filepath.Dir(path), 0755)
-				_ = os.WriteFile(path, data, 0644)
-				unpackedCount++
+				_ = os.MkdirAll(filepath.Dir(targetPath), 0755)
+				if writeErr := os.WriteFile(targetPath, data, 0644); writeErr == nil {
+					unpackedCount++
+				}
 			}
 		}
 		return nil
 	})
+
 	if unpackedCount > 0 {
 		fmt.Printf("[Self-Heal / Installer] Successfully verified and installed %d game assets.\n", unpackedCount)
 	}
+}
+
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+// Serve file either from physical disk (if present) or fallback to embedded assets
+func serveFileOrEmbedded(w http.ResponseWriter, r *http.Request, path string) {
+	// 1. Try physical disk
+	if fileExists(path) {
+		f, err := os.Open(path)
+		if err == nil {
+			defer f.Close()
+			stat, err := f.Stat()
+			if err == nil && !stat.IsDir() {
+				http.ServeContent(w, r, filepath.Base(path), stat.ModTime(), f)
+				return
+			}
+		}
+	}
+
+	// 2. Fallback to embedded assets
+	cleanEmbeddedPath := filepath.ToSlash(path)
+	data, err := embeddedAssets.ReadFile(cleanEmbeddedPath)
+	if err == nil {
+		http.ServeContent(w, r, filepath.Base(cleanEmbeddedPath), time.Time{}, bytes.NewReader(data))
+		return
+	}
+
+	http.NotFound(w, r)
 }
 
 // Find available chromeless application window launcher
 func launchAppWindow(targetURL string) (*exec.Cmd, error) {
 	width := "1280"
 	height := "820"
+	tempProfile := filepath.Join(os.TempDir(), "quad_shot_webprofile")
 
 	switch runtime.GOOS {
 	case "windows":
@@ -64,20 +120,56 @@ func launchAppWindow(targetURL string) (*exec.Cmd, error) {
 			os.ExpandEnv("${ProgramFiles}\\Google\\Chrome\\Application\\chrome.exe"),
 			os.ExpandEnv("${ProgramFiles(x86)}\\Google\\Chrome\\Application\\chrome.exe"),
 			os.ExpandEnv("${LocalAppData}\\Google\\Chrome\\Application\\chrome.exe"),
-			"msedge.exe",
-			"chrome.exe",
+			os.ExpandEnv("${ProgramFiles}\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"),
+			os.ExpandEnv("${LocalAppData}\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"),
 		}
 		for _, exe := range candidates {
-			if _, err := exec.LookPath(exe); err == nil || fileExists(exe) {
-				args := []string{fmt.Sprintf("--app=%s", targetURL), fmt.Sprintf("--window-size=%s,%s", width, height)}
+			if fileExists(exe) {
+				args := []string{
+					fmt.Sprintf("--app=%s", targetURL),
+					fmt.Sprintf("--window-size=%s,%s", width, height),
+					fmt.Sprintf("--user-data-dir=%s", tempProfile),
+					"--no-first-run",
+					"--no-default-browser-check",
+				}
 				cmd := exec.Command(exe, args...)
 				if err := cmd.Start(); err == nil {
 					return cmd, nil
 				}
 			}
 		}
-		// Fallback to start
-		cmd := exec.Command("cmd", "/c", "start", targetURL)
+
+		// Check LookPath for msedge or chrome
+		for _, name := range []string{"msedge.exe", "chrome.exe", "brave.exe"} {
+			if path, err := exec.LookPath(name); err == nil {
+				args := []string{
+					fmt.Sprintf("--app=%s", targetURL),
+					fmt.Sprintf("--window-size=%s,%s", width, height),
+					fmt.Sprintf("--user-data-dir=%s", tempProfile),
+					"--no-first-run",
+				}
+				cmd := exec.Command(path, args...)
+				if err := cmd.Start(); err == nil {
+					return cmd, nil
+				}
+			}
+		}
+
+		// Firefox fallback
+		for _, ff := range []string{
+			os.ExpandEnv("${ProgramFiles}\\Mozilla Firefox\\firefox.exe"),
+			os.ExpandEnv("${ProgramFiles(x86)}\\Mozilla Firefox\\firefox.exe"),
+		} {
+			if fileExists(ff) {
+				cmd := exec.Command(ff, "--new-window", targetURL)
+				if err := cmd.Start(); err == nil {
+					return cmd, nil
+				}
+			}
+		}
+
+		// System shell fallback
+		cmd := exec.Command("cmd", "/c", "start", "", targetURL)
 		return cmd, cmd.Start()
 
 	case "darwin": // macOS
@@ -91,19 +183,33 @@ func launchAppWindow(targetURL string) (*exec.Cmd, error) {
 		}
 		for _, c := range candidates {
 			if fileExists(c.bin) {
-				args := []string{"-na", c.app, "--args", fmt.Sprintf("--app=%s", targetURL), fmt.Sprintf("--window-size=%s,%s", width, height)}
-				cmd := exec.Command("open", args...)
+				args := []string{
+					fmt.Sprintf("--app=%s", targetURL),
+					fmt.Sprintf("--window-size=%s,%s", width, height),
+					fmt.Sprintf("--user-data-dir=%s", tempProfile),
+					"--no-first-run",
+				}
+				cmd := exec.Command(c.bin, args...)
 				if err := cmd.Start(); err == nil {
 					return cmd, nil
 				}
 			}
 		}
+
+		// Firefox fallback on macOS
+		if fileExists("/Applications/Firefox.app/Contents/MacOS/firefox") {
+			cmd := exec.Command("/Applications/Firefox.app/Contents/MacOS/firefox", "-new-window", targetURL)
+			if err := cmd.Start(); err == nil {
+				return cmd, nil
+			}
+		}
+
 		// Fallback to open
 		cmd := exec.Command("open", targetURL)
 		return cmd, cmd.Start()
 
-	case "linux":
-	default:
+	default: // Linux and other POSIX
+		// Priority 1: Chromium-based standalone app window
 		candidates := []string{
 			"google-chrome",
 			"google-chrome-stable",
@@ -118,6 +224,7 @@ func launchAppWindow(targetURL string) (*exec.Cmd, error) {
 				args := []string{
 					fmt.Sprintf("--app=%s", targetURL),
 					fmt.Sprintf("--window-size=%s,%s", width, height),
+					fmt.Sprintf("--user-data-dir=%s", tempProfile),
 					"--no-first-run",
 					"--disable-default-apps",
 				}
@@ -127,22 +234,29 @@ func launchAppWindow(targetURL string) (*exec.Cmd, error) {
 				}
 			}
 		}
-		// Fallback to xdg-open
-		if path, err := exec.LookPath("xdg-open"); err == nil {
-			cmd := exec.Command(path, targetURL)
-			return cmd, cmd.Start()
+
+		// Priority 2: Firefox dedicated window
+		for _, ff := range []string{"firefox", "firefox-esr"} {
+			if path, err := exec.LookPath(ff); err == nil {
+				cmd := exec.Command(path, "--new-window", targetURL)
+				if err := cmd.Start(); err == nil {
+					return cmd, nil
+				}
+			}
+		}
+
+		// Priority 3: System launchers
+		for _, launcher := range []string{"xdg-open", "sensible-browser", "x-www-browser"} {
+			if path, err := exec.LookPath(launcher); err == nil {
+				cmd := exec.Command(path, targetURL)
+				if err := cmd.Start(); err == nil {
+					return cmd, nil
+				}
+			}
 		}
 	}
 
-	return nil, fmt.Errorf("no suitable application window launcher found")
-}
-
-func fileExists(path string) bool {
-	if path == "" {
-		return false
-	}
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
+	return nil, fmt.Errorf("no suitable browser or application window launcher found on system")
 }
 
 func main() {
@@ -158,7 +272,7 @@ func main() {
 	// Step 1: Self-heal local files if needed
 	selfHealAssets()
 
-	// Step 2: Establish self-healing listener with ephemeral/auto port
+	// Step 2: Establish self-healing listener with dynamic auto-port
 	var listener net.Listener
 	var err error
 
@@ -190,52 +304,20 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"healthy","game":"Quad Shot"}`))
 	})
 
-	// Root redirect
+	// Unified routing for root, quad_shot, and assets
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		if path == "/" || path == "/index.html" {
-			http.Redirect(w, r, "/quad_shot/index.html", http.StatusTemporaryRedirect)
+		reqPath := strings.TrimPrefix(r.URL.Path, "/")
+		if reqPath == "" || reqPath == "index.html" || reqPath == "quad_shot" || reqPath == "quad_shot/" || reqPath == "quad_shot/index.html" {
+			serveFileOrEmbedded(w, r, "quad_shot/index.html")
 			return
 		}
 
-		// Clean path
-		cleanPath := strings.TrimPrefix(path, "/")
-
-		// Prefer physical file if present
-		if fileExists(cleanPath) {
-			http.ServeFile(w, r, cleanPath)
-			return
+		// Rewrite quad_shot/sprites to sprites/
+		if strings.HasPrefix(reqPath, "quad_shot/sprites/") {
+			reqPath = strings.Replace(reqPath, "quad_shot/sprites/", "sprites/", 1)
 		}
 
-		// Also check quad_shot/sprites rewrite to sprites/
-		if strings.HasPrefix(cleanPath, "quad_shot/sprites/") {
-			altPath := strings.Replace(cleanPath, "quad_shot/sprites/", "sprites/", 1)
-			if fileExists(altPath) {
-				http.ServeFile(w, r, altPath)
-				return
-			}
-			// Check embedded
-			if data, err := embeddedAssets.ReadFile(altPath); err == nil {
-				serveEmbeddedBytes(w, altPath, data)
-				return
-			}
-		}
-
-		// Embedded fallback
-		data, err := embeddedAssets.ReadFile(cleanPath)
-		if err == nil {
-			serveEmbeddedBytes(w, cleanPath, data)
-			return
-		}
-
-		// Try embedded in sub-dir
-		subData, subErr := fs.ReadFile(embeddedAssets, cleanPath)
-		if subErr == nil {
-			serveEmbeddedBytes(w, cleanPath, subData)
-			return
-		}
-
-		http.NotFound(w, r)
+		serveFileOrEmbedded(w, r, reqPath)
 	})
 
 	server := &http.Server{Handler: mux}
@@ -252,12 +334,19 @@ func main() {
 		fmt.Println("[Window] Launching Quad Shot in dedicated application window...")
 		cmd, winErr := launchAppWindow(gameURL)
 		if winErr != nil {
-			fmt.Printf("[Notice] Could not launch chromeless window: %v\n", winErr)
-			fmt.Printf("[Notice] You can connect manually at: %s\n", gameURL)
+			fmt.Printf("[Notice] Could not launch window: %v\n", winErr)
+			fmt.Printf("[Notice] You can connect manually in your browser at: %s\n", gameURL)
 		} else {
-			fmt.Println("[Active] Quad Shot running. Press Ctrl+C in terminal to terminate.")
+			fmt.Println("[Active] Quad Shot running. Close the game window or press Ctrl+C to exit.")
+			startTime := time.Now()
 			go func() {
 				_ = cmd.Wait()
+				// If process ran for more than 2 seconds and closed, window was closed by user
+				if time.Since(startTime) > 2*time.Second {
+					fmt.Println("\n[Shutdown] Game window closed by user. Terminating server cleanly...")
+					_ = server.Close()
+					os.Exit(0)
+				}
 			}()
 		}
 	} else {
@@ -289,25 +378,4 @@ func main() {
 			}
 		}
 	}
-}
-
-func serveEmbeddedBytes(w http.ResponseWriter, path string, data []byte) {
-	switch {
-	case strings.HasSuffix(path, ".html"):
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	case strings.HasSuffix(path, ".css"):
-		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-	case strings.HasSuffix(path, ".js"):
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-	case strings.HasSuffix(path, ".json"):
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	case strings.HasSuffix(path, ".png"):
-		w.Header().Set("Content-Type", "image/png")
-	case strings.HasSuffix(path, ".wav"):
-		w.Header().Set("Content-Type", "audio/wav")
-	case strings.HasSuffix(path, ".mp3"):
-		w.Header().Set("Content-Type", "audio/mpeg")
-	}
-	w.WriteHeader(http.StatusOK)
-	_, _ = io.WriteString(w, string(data))
 }
