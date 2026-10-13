@@ -19,3 +19,6 @@ build/
 # Binaries & Shipped reference games (Excluded from repo)
 endless/
 G-Wars_Stable_a_V0/
+
+# Agents & local tooling (Excluded from repo)
+.agents/

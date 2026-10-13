@@ -1,14 +1,36 @@
-# Respawn Roguelike — Quad Shot
+# Quad Shot — 2D Cartesian Roguelike
 
-**Quad Shot** is a high-speed 2D open-world roguelike set on an infinite Cartesian coordinate plane, engineered by reverse-engineering **Endless Fire** (`/endless`) and **G-Wars** (`/G-Wars_Stable_a_V0`) using the REA methodology and synthesized according to the [Quad Shot Game Design Document](file:///home/ashoka/Documents/Respawn/Quad_Shot-Game_Design_Document(1).md).
+**Quad Shot** is a high-speed 2D open-world roguelike set on an infinite Cartesian coordinate plane, built according to the [Quad Shot Game Design Document](file:///home/ashoka/Documents/Respawn/Quad_Shot-Game_Design_Document(1).md). The game visualizes combat through neon minimalism—a dark grid universe pulsing with high-contrast glowing vector graphics, geometric trajectory lines, reactive grid deformation, and fluid martial-arts combat.
 
 ---
 
-## 🚀 Quick Launch & Play
+## 🚀 Standalone Desktop Launchers
 
-Open the game in any web browser:
-- **Local Server**: `http://localhost:8080/quad_shot/index.html` (or root `http://localhost:8080/`)
-- **Direct File**: Open [index.html](file:///home/ashoka/Documents/Respawn/quad_shot/index.html) directly in Chrome, Firefox, or Brave.
+Quad Shot runs as a dedicated desktop application in its own chromeless window with self-healing runtime and asset recovery:
+
+### 🐧 Linux
+Run the native binary or launcher script:
+```bash
+./bin/quad_shot-linux
+# or
+./quad_shot.sh
+```
+
+### 🪟 Windows
+Double-click `quad_shot.bat` or run:
+```cmd
+bin\quad_shot-windows.exe
+```
+
+### 🍎 macOS
+Double-click `quad_shot.command` or run:
+```bash
+./bin/quad_shot-macos          # Intel x86_64
+./bin/quad_shot-macos-arm64    # Apple Silicon M-Series
+```
+
+### 🌐 Direct Browser Launch
+You can also open [index.html](file:///home/ashoka/Documents/Respawn/quad_shot/index.html) directly in any browser (Chrome, Firefox, Brave) via `file://` or run `python3 -m http.server 8080`.
 
 ---
 
@@ -30,35 +52,24 @@ Open the game in any web browser:
 
 ---
 
-## 🧬 Reverse Engineering Synthesis
+## ⚙️ Core Architecture & Game Systems
 
-### 1. From Endless Fire (`/endless`)
-- **Multiplier Scoring Loop**: Multiplier increases with hits and decays over time ($dM/dt < 0$); score scales with active multiplier.
-- **Procedural Pattern Escalation**: Semi-random procedural wave generation.
-- **Psycho FX Visual Pipeline**: Real-time chromatic aberration, color cycling, and screen space distortion.
-- **Defensive Bomb / Shield**: Mirrored in Quad Shot's **Apex Step** and **Deployable Traps**.
+### 1. Dual Physics System (Selectable via `Z`)
+- **Kinematic Frame**: Direct, instantaneous velocity response with zero rotational drift. Strict tactical angle management.
+- **Inertial Frame**: Momentum-driven physics utilizing ragdoll-style vector preservation, drift friction, thrust acceleration, and high-velocity slingshot maneuvers.
 
-### 2. From G-Wars (`/G-Wars_Stable_a_V0`)
-- **Vector Math & Orientation**: Rigidbody kinematic integration, normalized direction vectors, and mouse tracking.
-- **Wave Management System**: Dynamic distance-filtered spawner with clear-to-advance logic.
-- **Damped Follow Camera**: Smooth camera damping following player movements, with automatic **Macro-View** zoom-out on Boss waves.
-- **Vector Visuals**: High-contrast glowing vector lines and bloom styling.
+### 2. Infinite Cartesian World Map & 4 Dynamic Quadrants
+Centered around **The Origin Point (0,0)** Hub:
+- **Quadrant I (+,+) — Domain of Order**: Rigid crystalline grid with linear laser hazards and right-angled layouts.
+- **Quadrant II (-,+) — Parabolic Wastes**: Curved geometry lines and gravitational arcs that bend projectile paths.
+- **Quadrant III (-,-) — Fractal Depths**: Self-similar obstacle clusters and recursively splitting hazard zones.
+- **Quadrant IV (+,-) — Zero-G Void**: Frictionless grid space with free-floating geometry hazards and long-distance drift.
+- **Quadrant Scrambler**: Biome locations scramble upon player death, creating new progression routes each run.
 
-### 3. Sprite Pack Integration (`/sprites`)
+### 3. Cyberpunk Character Roster Integration (`/sprites`)
 - Uses the **Neon Cyber Pixel RPG Sprite Pack** (`/sprites/release/cyber`).
 - Features **Null-7 (`VX-0024`)** with teal synth core glow as the protagonist **"The Origin Point (0,0)"**, alongside **Cipher (`VX-0012`)**, **Ledger (`VX-0048`)**, **Static (`VX-0042`)**, **Wire (`VX-0156`)**, and **Glitch (`VX-0240`)** powering hostile units and bosses.
-- Both 8-directional top-down sprites and martial-arts animated vector stickman rendering are supported via the `T` key!
-
----
-
-## 🗺️ Cartesian World Map & Biomes
-
-Centred around **The Origin Point (0,0)** Hub:
-- **Quadrant I (+,+)**: *Domain of Order* — Rigid crystalline grid with linear laser hazards.
-- **Quadrant II (-,+)**: *Parabolic Wastes* — Curved gravitational arcs that bend projectile trajectories.
-- **Quadrant III (-,-)**: *Fractal Depths* — Dense spatial corridors and recursively splitting hazard zones.
-- **Quadrant IV (+,-)**: *Zero-G Void* — Frictionless grid space with long-distance directional drift.
-- **Quadrant Scrambling**: Biome locations scramble upon player death, creating new progression routes each run.
+- Both 8-directional top-down sprites and martial-arts animated vector stickman rendering are supported seamlessly via the `T` key.
 
 ---
 
@@ -66,6 +77,6 @@ Centred around **The Origin Point (0,0)** Hub:
 
 - **Weapons (Grades I to IV)**: Sine Rifle, Parabolic Mortar, Reflection Ray, Tangent Disc, Scalar Shotgun, Fractal Cluster, Asymptote Laser, Doppler Repeater.
 - **Traps**: Gravity Tether, Prism Mine, Möbius Snare, Vector Repulsor.
-- **Intersection Pause System**: Time slows to 5% when weapons drop; analyze trajectory math and choose **Swap** or **Scrap** for Vertices.
+- **Intersection Pause System**: Time slows to 5% when weapons drop; analyze trajectory math and choose **Swap** into active loadout or **Scrap** for Vertices.
 - **Bosses**: Orbital Torus, Hyperbolic Twins, Non-Euclidean Prism, Apex Icosahedron (every 5th wave), and Wave 100 **Corruption Vector** with adaptive swarm defense.
 - **Meta-Progression**: Convert unspent Vertices into Prime Matrices (10:1 ratio) to unlock Algorithmic Tree tiers, Loadout Variables, and Chromatic Shifts.

@@ -1,11 +1,9 @@
 # Quad Shot — Project Handover Document
 
-## 1. Project Overview & Objective
-This project successfully reverse-engineered two foundational geometric combat games:
-1. **Endless Fire** (`/endless`): A procedural OpenGL/DirectX shmup utilizing a dual-fire risk-reward scoring loop (Z spread multiplier growth vs. X stream score harvesting), defensive shields, evolving generation waves, and real-time screen-space Psycho FX distortion.
-2. **G-Wars** (`/G-Wars_Stable_a_V0`): A 64-bit Unity twin-stick shooter using Rigidbody2D vector physics, look rotation angle alignment, procedural wave spawning with distance filtering (`distToPlayer`), smooth damped camera following, and weapon upgrade pick-ups.
+## 1. Project Overview & Architecture
+**Quad Shot** is a high-speed 2D open-world roguelike set on an infinite Cartesian coordinate plane, built strictly according to the [Quad Shot Game Design Document](file:///home/ashoka/Documents/Respawn/Quad_Shot-Game_Design_Document(1).md). The combat system visualizes high-contrast neon vector graphics (`#00ffea`, `#ff007f`, `#39ff14`, `#9d00ff`), dynamic spring-damper grid deformation, and martial-arts combat.
 
-Using the **Reverse-Engineer-Anything (REA)** methodology and the [Quad Shot Game Design Document](file:///home/ashoka/Documents/Respawn/Quad_Shot-Game_Design_Document(1).md), we engineered **Quad Shot**—a high-speed 2D open-world roguelike set on an infinite Cartesian coordinate plane, integrating the [Neon Cyber Pixel RPG Sprite Pack](file:///home/ashoka/Documents/Respawn/sprites).
+The game is distributed with self-healing, dedicated standalone desktop executables for **Linux**, **Windows**, and **macOS**, running directly in their own chromeless desktop application window without requiring the user to manually launch a web browser.
 
 ---
 
@@ -13,16 +11,24 @@ Using the **Reverse-Engineer-Anything (REA)** methodology and the [Quad Shot Gam
 
 ```
 Respawn/
-├── .gitignore                     # Configured to ignore reference game binaries (endless, G-Wars)
-├── README.md                      # Project introduction & quick-start guide
-├── HANDOVER.md                    # This comprehensive handover document
+├── .gitignore                     # Configured to ignore local binaries and caches
+├── README.md                      # Project manual, launch instructions & feature overview
+├── HANDOVER.md                    # This complete handover document
 ├── index.html                     # Root redirect entry point
+├── main.go                        # Go-based self-healing desktop application runner & server
+├── quad_shot.sh                   # Linux executable launcher script
+├── quad_shot.bat                  # Windows batch launcher script
+├── quad_shot.command              # macOS application launcher script
+├── bin/                           # Compiled standalone native executables
+│   ├── quad_shot-linux            # Linux x86_64 native executable
+│   ├── quad_shot-windows.exe      # Windows x86_64 native executable
+│   ├── quad_shot-macos            # macOS Intel x86_64 native executable
+│   └── quad_shot-macos-arm64      # macOS Apple Silicon arm64 native executable
 ├── quad_shot/                     # Core Game Application
 │   ├── index.html                 # HTML5 game shell & interactive Tron HUD
-│   ├── index.css                  # Vanilla CSS design system (Tron neon, glassmorphism, CRT scanlines)
+│   ├── index.css                  # Vanilla CSS design system (neon glow, glassmorphism, CRT scanlines)
 │   ├── bundle.js                  # Production unified bundle (offline & file:// compatible)
 │   ├── bundle.py                  # Build tool to compile src/*.js into bundle.js
-│   ├── sprites/ -> ../sprites     # Symlink to sprite pack assets
 │   └── src/                       # Modular Source Code
 │       ├── math.js                # Vector2 math, line intersections, sine & parabolic trajectories
 │       ├── audio.js               # Web Audio API retro synth sound engine & procedural BGM
@@ -42,7 +48,22 @@ Respawn/
 
 ---
 
-## 3. Core Mechanics & Mathematical Implementation
+## 3. Dedicated Desktop Window & Self-Healing Engine
+
+The application runner (`main.go`) embeds the entire game distribution (`//go:embed`) and includes the following autonomous self-healing capabilities:
+
+1. **Self-Healing Asset Recovery**:
+   On startup, the runner verifies local filesystem integrity for all game assets. If any critical asset (`index.html`, `bundle.js`, `index.css`, or sprite sheets) is deleted or corrupted, the runner automatically extracts and restores the asset from its embedded payload.
+2. **Dynamic Ephemeral Port Allocation**:
+   The listener binds to an auto-assigned ephemeral port (`127.0.0.1:0`), completely eliminating port collision errors if port 8080 or other ports are occupied.
+3. **Chromeless Desktop Application Window**:
+   Launches the game in a dedicated, top-level, chromeless native window (`--app=http://...` mode with `--window-size=1280,820`) using the platform's default web runtime (Chrome, Edge, Chromium, Brave), providing an authentic standalone game application feel without browser tabs, bookmarks, or URL bars.
+4. **Watchdog Healthcheck Loop**:
+   Runs a background healthcheck monitor querying `/healthz`. If connection drops or the window is closed, the runner handles cleanup gracefully.
+
+---
+
+## 4. Core Mechanics & Mathematical Implementation
 
 | GDD Section | Implemented Feature | Implementation Details |
 | :--- | :--- | :--- |
@@ -59,27 +80,35 @@ Respawn/
 
 ---
 
-## 4. Sprite Pack Integration (`/sprites`)
-- Driven by `quad_shot/src/sprite_manager.js`.
+## 5. Sprite Pack Integration (`/sprites`)
+- Managed by `quad_shot/src/sprite_manager.js`.
 - Protagonist **The Origin Point (0,0)** defaults to **Null-7 (`VX-0024`)** with teal synth core glow.
-- Hostile entities and bosses use **Cipher (`VX-0012`)**, **Ledger (`VX-0048`)**, **Static (`VX-0042`)**, **Wire (`VX-0156`)**, **Grit (`VX-0036`)**, and **Glitch (`VX-0240`)**.
+- Hostile units and bosses use **Cipher (`VX-0012`)**, **Ledger (`VX-0048`)**, **Static (`VX-0042`)**, **Wire (`VX-0156`)**, **Grit (`VX-0036`)**, and **Glitch (`VX-0240`)**.
 - Players can toggle between the Cyberpunk Character Sprite and the animated Neon Vector Stickman using the **`T`** key.
 
 ---
 
-## 5. How to Run & Verify
+## 6. How to Run
 
-1. **Local Dev Server**:
-   ```bash
-   python3 -m http.server 8080
-   ```
-   Open `http://localhost:8080/quad_shot/index.html` in your browser.
-2. **Direct File Launch**:
-   Open `quad_shot/index.html` directly in any modern browser (Chrome, Firefox, Brave) via `file://`. The game utilizes `bundle.js` with zero external dependencies.
+### Linux
+```bash
+./bin/quad_shot-linux
+# or
+./quad_shot.sh
+```
 
----
+### Windows
+Double click `quad_shot.bat` or run:
+```cmd
+bin\quad_shot-windows.exe
+```
 
-## 6. Repository Hygiene & Git State
-- Reference game directories `/endless` and `/G-Wars_Stable_a_V0` are excluded in `.gitignore`.
-- Scratch reverse-engineering test files have been removed.
-- All code modules passed `node --check` validation without syntax or runtime dependency errors.
+### macOS
+Double click `quad_shot.command` or run:
+```bash
+./bin/quad_shot-macos          # Intel x86_64
+./bin/quad_shot-macos-arm64    # Apple Silicon
+```
+
+### Direct Browser Access (Alternative)
+Open `quad_shot/index.html` in any browser or run `python3 -m http.server 8080`.
