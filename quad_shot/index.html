@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quad Shot — 2D Cartesian Roguelike</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div class="scanlines"></div>
+
+    <div id="ui-overlay">
+        <!-- Top Action Bar -->
+        <div class="top-bar">
+            <button id="btn-meta" class="btn-icon">⚡ META MATRIX [M]</button>
+            <button id="btn-controls" class="btn-icon">⌨ CONTROLS [?]</button>
+            <button id="btn-psycho" class="btn-icon">🌀 PSYCHO FX [P]</button>
+            <button id="btn-avatar" class="btn-icon">👤 SPRITE [T]</button>
+            <button id="btn-audio" class="btn-icon">🔊 AUDIO</button>
+        </div>
+
+        <!-- Hub Action Panel at (0,0) Origin -->
+        <div id="hub-panel">
+            <button id="btn-launch-combat" class="hub-btn btn-combat">⚔ LAUNCH GRID LOCKDOWN</button>
+            <button id="btn-open-meta" class="hub-btn">🧬 UPGRADE MATRIX</button>
+            <button id="btn-toggle-physics" class="hub-btn">⚙ TOGGLE PHYSICS [Z]</button>
+        </div>
+
+        <!-- Meta Matrix Upgrades Modal -->
+        <div id="modal-meta" class="modal-backdrop" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">THE META MATRIX — (0,0) ORIGIN TERMINAL</h2>
+                    <button class="modal-close" id="close-meta">✕</button>
+                </div>
+                <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 15px; color: #39ff14;">
+                        PRIME MATRICES AVAILABLE: <strong id="prime-count" style="font-size: 20px;">0</strong>
+                    </div>
+                    <div style="font-size: 13px; color: var(--text-dim);">
+                        Conversion Ratio: 10 Vertices = 1 Prime Matrix
+                    </div>
+                </div>
+
+                <h3 style="color: var(--cyan); margin-bottom: 12px; font-size: 16px;">[ ALGORITHMIC SKILL TREE ]</h3>
+                <div class="upgrade-grid">
+                    <div class="upgrade-card">
+                        <div>
+                            <div class="upgrade-name">Vector Processing</div>
+                            <div class="upgrade-desc">Increases base movement velocity by +35 and adds +1 extra dash charge per tier.</div>
+                        </div>
+                        <div class="upgrade-footer">
+                            <span id="vp-lvl" style="color: var(--cyan); font-size: 12px;">Tier 0/2</span>
+                            <button class="btn-buy" id="buy-vp">UPGRADE (5 PM)</button>
+                        </div>
+                    </div>
+                    <div class="upgrade-card">
+                        <div>
+                            <div class="upgrade-name">Kinetic Dampening</div>
+                            <div class="upgrade-desc">Reduces impact collision damage taken from environmental grid walls by 20% per tier.</div>
+                        </div>
+                        <div class="upgrade-footer">
+                            <span id="kd-lvl" style="color: var(--cyan); font-size: 12px;">Tier 0/3</span>
+                            <button class="btn-buy" id="buy-kd">UPGRADE (4 PM)</button>
+                        </div>
+                    </div>
+                    <div class="upgrade-card">
+                        <div>
+                            <div class="upgrade-name">Matrix Expansion</div>
+                            <div class="upgrade-desc">Expands base health pool (+25 HP) and enables passive health regeneration (+2 HP/s).</div>
+                        </div>
+                        <div class="upgrade-footer">
+                            <span id="me-lvl" style="color: var(--cyan); font-size: 12px;">Tier 0/3</span>
+                            <button class="btn-buy" id="buy-me">UPGRADE (6 PM)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="color: var(--cyan); margin-bottom: 12px; font-size: 16px;">[ LOADOUT VARIABLES ]</h3>
+                <div class="upgrade-grid">
+                    <div class="upgrade-card">
+                        <div>
+                            <div class="upgrade-name">Initial Matrix</div>
+                            <div class="upgrade-desc">Unlocks starting runs equipped with Grade II Reflection Ray in addition to Sine Rifle.</div>
+                        </div>
+                        <div class="upgrade-footer">
+                            <span id="im-lvl" style="color: var(--cyan); font-size: 12px;">Tier 0/1</span>
+                            <button class="btn-buy" id="buy-im">UNLOCK (10 PM)</button>
+                        </div>
+                    </div>
+                    <div class="upgrade-card">
+                        <div>
+                            <div class="upgrade-name">Trap Calibration</div>
+                            <div class="upgrade-desc">Reduces default trap recharge timers by 10% per tier (up to 30% reduction).</div>
+                        </div>
+                        <div class="upgrade-footer">
+                            <span id="tc-lvl" style="color: var(--cyan); font-size: 12px;">Tier 0/3</span>
+                            <button class="btn-buy" id="buy-tc">UPGRADE (4 PM)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="color: var(--cyan); margin-bottom: 12px; font-size: 16px;">[ CHROMATIC SHIFTS — PALETTES ]</h3>
+                <div class="palette-row">
+                    <button class="palette-btn" data-palette="CYBER">CYBER CYAN</button>
+                    <button class="palette-btn" data-palette="ULTRAVIOLET">ULTRA-VIOLET (3 PM)</button>
+                    <button class="palette-btn" data-palette="THERMAL">THERMAL YELLOW (3 PM)</button>
+                    <button class="palette-btn" data-palette="MATRIX">MATRIX EMERALD (3 PM)</button>
+                    <button class="palette-btn" data-palette="MONOCHROME">MONOCHROME (3 PM)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Cheatsheet Modal -->
+        <div id="modal-controls" class="modal-backdrop" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">OPERATIONAL CONTROLS & FLIGHT MANUAL</h2>
+                    <button class="modal-close" id="close-controls">✕</button>
+                </div>
+                <div class="controls-list">
+                    <div class="control-item"><span class="key-badge">WASD</span><span>8-Directional Vector Movement</span></div>
+                    <div class="control-item"><span class="key-badge">MOUSE</span><span>Aim Weapon Trajectory</span></div>
+                    <div class="control-item"><span class="key-badge">LMB</span><span>Fire Active Primary Weapon</span></div>
+                    <div class="control-item"><span class="key-badge">RMB / SHIFT</span><span>Suspension State (60% Time Slow)</span></div>
+                    <div class="control-item"><span class="key-badge">SPACE</span><span>Vector Dash (Leaves 1.5s damage trail)</span></div>
+                    <div class="control-item"><span class="key-badge">C</span><span>Apex Step (360° bullet-cancel shockwave)</span></div>
+                    <div class="control-item"><span class="key-badge">1, 2, 3</span><span>Switch Primary Weapon Slot</span></div>
+                    <div class="control-item"><span class="key-badge">E / F</span><span>Deploy Active Trap</span></div>
+                    <div class="control-item"><span class="key-badge">Z</span><span>Toggle Dual Physics (Kinematic / Inertial)</span></div>
+                    <div class="control-item"><span class="key-badge">P</span><span>Toggle Psycho FX Distortion Mode</span></div>
+                    <div class="control-item"><span class="key-badge">T</span><span>Toggle Cyberpunk Sprite vs Neon Stickman</span></div>
+                    <div class="control-item"><span class="key-badge">M</span><span>Open Origin Hub Meta-Matrix</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="bundle.js"></script>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const game = new Game(canvas);
+        game.start();
+
+        // UI Event Listeners
+        const btnMeta = document.getElementById('btn-meta');
+        const btnOpenMeta = document.getElementById('btn-open-meta');
+        const modalMeta = document.getElementById('modal-meta');
+        const closeMeta = document.getElementById('close-meta');
+        const primeCount = document.getElementById('prime-count');
+
+        const btnControls = document.getElementById('btn-controls');
+        const modalControls = document.getElementById('modal-controls');
+        const closeControls = document.getElementById('close-controls');
+
+        const btnPsycho = document.getElementById('btn-psycho');
+        const btnAvatar = document.getElementById('btn-avatar');
+        const btnAudio = document.getElementById('btn-audio');
+        const btnLaunchCombat = document.getElementById('btn-launch-combat');
+        const btnTogglePhysics = document.getElementById('btn-toggle-physics');
+
+        function updateMetaUI() {
+            primeCount.innerText = game.meta.primeMatrices;
+            document.getElementById('vp-lvl').innerText = `Tier ${game.meta.upgrades.vectorProcessing}/2`;
+            document.getElementById('kd-lvl').innerText = `Tier ${game.meta.upgrades.kineticDampening}/3`;
+            document.getElementById('me-lvl').innerText = `Tier ${game.meta.upgrades.matrixExpansion}/3`;
+            document.getElementById('im-lvl').innerText = `Tier ${game.meta.upgrades.initialMatrix}/1`;
+            document.getElementById('tc-lvl').innerText = `Tier ${game.meta.upgrades.trapCalibration}/3`;
+        }
+
+        function openMeta() {
+            updateMetaUI();
+            modalMeta.style.display = 'flex';
+        }
+        btnMeta.onclick = openMeta;
+        btnOpenMeta.onclick = openMeta;
+        closeMeta.onclick = () => modalMeta.style.display = 'none';
+
+        btnControls.onclick = () => modalControls.style.display = 'flex';
+        closeControls.onclick = () => modalControls.style.display = 'none';
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'm') {
+                if (modalMeta.style.display === 'flex') modalMeta.style.display = 'none';
+                else openMeta();
+            }
+            if (e.key === '?') {
+                modalControls.style.display = modalControls.style.display === 'flex' ? 'none' : 'flex';
+            }
+        });
+
+        // Upgrade button click handlers
+        document.getElementById('buy-vp').onclick = () => {
+            if (game.meta.upgrades.vectorProcessing < 2 && game.meta.upgrade('vectorProcessing', 5)) {
+                game.meta.applyToPlayer(game.player);
+                updateMetaUI();
+            }
+        };
+        document.getElementById('buy-kd').onclick = () => {
+            if (game.meta.upgrades.kineticDampening < 3 && game.meta.upgrade('kineticDampening', 4)) {
+                updateMetaUI();
+            }
+        };
+        document.getElementById('buy-me').onclick = () => {
+            if (game.meta.upgrades.matrixExpansion < 3 && game.meta.upgrade('matrixExpansion', 6)) {
+                game.meta.applyToPlayer(game.player);
+                updateMetaUI();
+            }
+        };
+        document.getElementById('buy-im').onclick = () => {
+            if (game.meta.upgrades.initialMatrix < 1 && game.meta.upgrade('initialMatrix', 10)) {
+                if (!game.weapons.includes('REFLECTION_RAY')) game.weapons.push('REFLECTION_RAY');
+                updateMetaUI();
+            }
+        };
+        document.getElementById('buy-tc').onclick = () => {
+            if (game.meta.upgrades.trapCalibration < 3 && game.meta.upgrade('trapCalibration', 4)) {
+                game.trapRechargeMax = 8.0 * (1 - game.meta.upgrades.trapCalibration * 0.1);
+                updateMetaUI();
+            }
+        };
+
+        // Palettes
+        document.querySelectorAll('.palette-btn').forEach(btn => {
+            btn.onclick = () => {
+                const pal = btn.dataset.palette;
+                if (game.meta.unlockedPalettes.includes(pal)) {
+                    game.meta.palette = pal;
+                    game.grid.theme = pal;
+                    game.meta.applyToPlayer(game.player);
+                    game.meta.save();
+                } else {
+                    if (game.meta.unlockPalette(pal, 3)) {
+                        game.grid.theme = pal;
+                        game.meta.applyToPlayer(game.player);
+                        updateMetaUI();
+                    }
+                }
+            };
+        });
+
+        // Launch combat button
+        btnLaunchCombat.onclick = () => {
+            game.startCombatLockdown();
+            document.getElementById('hub-panel').style.opacity = '0';
+            setTimeout(() => document.getElementById('hub-panel').style.display = 'none', 300);
+        };
+
+        // Toggle physics button
+        btnTogglePhysics.onclick = () => {
+            const nextFrame = game.player.physicsFrame === 'KINEMATIC' ? 'INERTIAL' : 'KINEMATIC';
+            game.player.setPhysicsFrame(nextFrame);
+        };
+
+        // Psycho FX button
+        btnPsycho.onclick = () => {
+            game.psychoMode = !game.psychoMode;
+            game.grid.psychoMode = game.psychoMode;
+            audio.setPsychoMode(game.psychoMode);
+            btnPsycho.classList.toggle('active', game.psychoMode);
+        };
+
+        // Avatar toggle button
+        btnAvatar.onclick = () => {
+            game.useSprites = !game.useSprites;
+            btnAvatar.classList.toggle('active', game.useSprites);
+            btnAvatar.innerText = game.useSprites ? '👤 SPRITE [T]' : '🥋 VECTOR [T]';
+        };
+
+        // Audio toggle button
+        btnAudio.onclick = () => {
+            const enabled = audio.toggle();
+            btnAudio.innerText = enabled ? '🔊 AUDIO' : '🔇 MUTED';
+        };
+
+        // Canvas click on game over resets to Hub
+        canvas.addEventListener('click', () => {
+            if (game.state === 'GAME_OVER') {
+                game.player = new StickmanPlayer(0, 0);
+                game.meta.applyToPlayer(game.player);
+                game.state = 'HUB';
+                game.enemies = [];
+                game.projectiles = [];
+                game.trapsDeployed = [];
+                game.walls = [];
+                game.pickups = [];
+                game.activeBoss = null;
+                document.getElementById('hub-panel').style.display = 'flex';
+                document.getElementById('hub-panel').style.opacity = '1';
+            }
+        });
+    </script>
+</body>
+</html>

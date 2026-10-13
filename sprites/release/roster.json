@@ -1,0 +1,92 @@
+{
+  "packVersion": "1.0.0",
+  "product": "Neon Cyber Pixel RPG Sprite Pack",
+  "tagline": "20 cyberpunk procedural characters · 8-dir walk cycles · CC0",
+  "bakeDefaults": {
+    "page": "/index.html",
+    "renderStyle": "pixel",
+    "directions": 8,
+    "frames": 6,
+    "resIndex": 2,
+    "resLabel": "224×336",
+    "pixelScale": 4,
+    "expectedCell": "56×84",
+    "outline": 40,
+    "saturation": 110,
+    "pose": "walk",
+    "views": [
+      { "id": "face", "pitch": 0, "label": "Face-on (horizontal)" },
+      { "id": "ortho_low", "pitch": 12, "label": "Low ortho" },
+      { "id": "ortho", "pitch": 22, "label": "Ortho RPG (elevated)" },
+      { "id": "ortho_high", "pitch": 42, "label": "High ortho" },
+      { "id": "topdown", "pitch": 88, "label": "Top-down" }
+    ]
+  },
+  "roster": [
+    {
+      "seed": "VX-0001",
+      "name": "Neon Jack",
+      "archetype": "punk",
+      "hue": 340,
+      "gender": "fem",
+      "outfit": "jacket",
+      "tier": "hero",
+      "cyberArm": true,
+      "visor": false,
+      "note": "Cover — magenta mohawk, chrome arm"
+    },
+    {
+      "seed": "VX-0012",
+      "name": "Cipher",
+      "archetype": "netrunner",
+      "hue": 295,
+      "gender": "andro",
+      "outfit": "coat",
+      "tier": "hero",
+      "hood": true,
+      "visor": true,
+      "note": "Purple hood + visor stripe"
+    },
+    {
+      "seed": "VX-0024",
+      "name": "Null-7",
+      "archetype": "synth",
+      "hue": 175,
+      "gender": "andro",
+      "outfit": "jacket",
+      "tier": "hero",
+      "core": true,
+      "cyberLeg": true,
+      "note": "Teal synth core glow"
+    },
+    {
+      "seed": "VX-0036",
+      "name": "Grit",
+      "archetype": "merc",
+      "hue": 22,
+      "gender": "masc",
+      "outfit": "vest",
+      "tier": "hero",
+      "cyberArm": true,
+      "cyberLeg": true,
+      "visor": true,
+      "note": "Full aug merc — cover grid"
+    },
+    { "seed": "VX-0042", "name": "Static", "archetype": "punk", "hue": 320, "gender": "masc", "outfit": "coat", "tier": "standard", "note": "Hot pink punk coat" },
+    { "seed": "VX-0048", "name": "Ledger", "archetype": "corpo", "hue": 195, "gender": "fem", "outfit": "jacket", "tier": "standard", "note": "Ice corpo suit" },
+    { "seed": "VX-0060", "name": "Bolt", "archetype": "merc", "hue": 30, "gender": "masc", "outfit": "jacket", "tier": "standard", "note": "Rust merc jacket" },
+    { "seed": "VX-0072", "name": "Ghost", "archetype": "netrunner", "hue": 280, "gender": "fem", "outfit": "robe", "tier": "standard", "note": "Violet netrunner robe" },
+    { "seed": "VX-0084", "name": "Chrome", "archetype": "synth", "hue": 190, "gender": "fem", "outfit": "vest", "tier": "standard", "note": "Cool synth vest" },
+    { "seed": "VX-0096", "name": "Dust", "archetype": "nomad", "hue": 38, "gender": "andro", "outfit": "coat", "tier": "standard", "note": "Desert nomad duster" },
+    { "seed": "VX-0108", "name": "Riot", "archetype": "punk", "hue": 350, "gender": "andro", "outfit": "vest", "tier": "standard", "note": "Street vest punk" },
+    { "seed": "VX-0120", "name": "Vice", "archetype": "corpo", "hue": 200, "gender": "masc", "outfit": "coat", "tier": "standard", "note": "Executive overcoat" },
+    { "seed": "VX-0132", "name": "Scar", "archetype": "merc", "hue": 18, "gender": "fem", "outfit": "robe", "tier": "standard", "note": "Long coat merc" },
+    { "seed": "VX-0144", "name": "Proxy", "archetype": "netrunner", "hue": 305, "gender": "masc", "outfit": "jacket", "tier": "standard", "note": "Magenta runner" },
+    { "seed": "VX-0156", "name": "Wire", "archetype": "synth", "hue": 165, "gender": "andro", "outfit": "coat", "tier": "standard", "note": "Mint chrome synth" },
+    { "seed": "VX-0168", "name": "Sable", "archetype": "nomad", "hue": 42, "gender": "fem", "outfit": "jacket", "tier": "standard", "note": "Warm nomad layers" },
+    { "seed": "VX-0180", "name": "Hex", "archetype": "punk", "hue": 310, "gender": "fem", "outfit": "robe", "tier": "standard", "note": "Long punk robe" },
+    { "seed": "VX-0192", "name": "Apex", "archetype": "corpo", "hue": 188, "gender": "andro", "outfit": "vest", "tier": "standard", "note": "Sleek corpo vest" },
+    { "seed": "VX-0204", "name": "Ridge", "archetype": "nomad", "hue": 32, "gender": "masc", "outfit": "vest", "tier": "standard", "note": "Sun-bleached nomad" },
+    { "seed": "VX-0240", "name": "Glitch", "archetype": "punk", "hue": 190, "gender": "auto", "outfit": "auto", "tier": "wildcard", "note": "RNG surprise — preview before ship" }
+  ]
+}

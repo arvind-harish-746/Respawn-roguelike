@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Voxel Sheet — minimal demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #0a0a12;
+      color: #cdd2e6;
+      font: 14px/1.5 system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      gap: 16px;
+    }
+    h1 { font-size: 18px; font-weight: 600; margin: 0; }
+    .sub { color: #888; font-size: 12px; text-align: center; max-width: 480px; }
+    canvas {
+      background: #12121c;
+      border: 1px solid #23233a;
+      border-radius: 8px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      max-width: 100%;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+    label { font-size: 12px; color: #888; }
+    input[type="file"] { font-size: 12px; max-width: 200px; }
+    #readout { font-size: 12px; color: #9aa3bf; }
+    kbd {
+      background: #1a1a28;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Voxel sprite sheet demo</h1>
+  <p class="sub">Load a baked <strong>PNG</strong> + <strong>JSON</strong> pair from the jam pack (or your own export). Move with <kbd>WASD</kbd> / arrows.</p>
+
+  <div class="row">
+    <div>
+      <label>PNG atlas</label><br />
+      <input type="file" id="png" accept="image/png" />
+    </div>
+    <div>
+      <label>JSON metadata</label><br />
+      <input type="file" id="json" accept="application/json,.json" />
+    </div>
+  </div>
+
+  <canvas id="c" width="640" height="400"></canvas>
+  <div id="readout">No sheet loaded</div>
+
+  <script src="sprite-loader.js"></script>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const readout = document.getElementById('readout');
+    let sheet = null;
+    let controller = null;
+    let scale = 1;
+    const walkFps = 10;
+
+    function resizeForCell(cellH) {
+      scale = Math.min(2, Math.max(0.5, canvas.height / 3 / cellH));
+    }
+
+    function applySheet(loaded) {
+      sheet = loaded;
+      controller = new VoxelSheet.SpriteController(loaded.meta);
+      controller.state.x = canvas.width / 2;
+      controller.state.y = canvas.height / 2;
+      resizeForCell(loaded.meta.cellH);
+      readout.textContent = 'Loaded seed ' + loaded.meta.seed + ' · ' +
+        loaded.meta.directions + ' dirs · ' + loaded.meta.frames + ' frames · ' +
+        loaded.meta.cellW + '×' + loaded.meta.cellH + ' cells';
+    }
+
+    let pendingPng = null;
+    let pendingJson = null;
+
+    document.getElementById('png').addEventListener('change', (e) => {
+      pendingPng = e.target.files[0] || null;
+      tryLoad();
+    });
+    document.getElementById('json').addEventListener('change', (e) => {
+      pendingJson = e.target.files[0] || null;
+      tryLoad();
+    });
+
+    function tryLoad() {
+      if (!pendingPng || !pendingJson) return;
+      VoxelSheet.loadSheetFromFiles(pendingPng, pendingJson)
+        .then(applySheet)
+        .catch((err) => {
+          readout.textContent = 'Load failed: ' + err.message;
+        });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (controller) controller.onKeyDown(e.key);
+    });
+    window.addEventListener('keyup', (e) => {
+      if (controller) controller.onKeyUp(e.key);
+    });
+
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+
+      ctx.fillStyle = '#12121c';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (sheet && controller) {
+        controller.tick(dt, walkFps, {
+          w: canvas.width,
+          h: canvas.height,
+          cellW: sheet.meta.cellW * scale,
+          cellH: sheet.meta.cellH * scale,
+        });
+        const s = controller.state;
+        VoxelSheet.drawSprite(ctx, sheet.image, sheet.meta, s.dir, s.frame, s.x, s.y, scale);
+        readout.innerHTML =
+          'seed <b>' + sheet.meta.seed + '</b> · row <b>' + s.dir + '</b> · frame <b>' + s.frame + '</b> · pose <b>' + s.pose + '</b>';
+      }
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

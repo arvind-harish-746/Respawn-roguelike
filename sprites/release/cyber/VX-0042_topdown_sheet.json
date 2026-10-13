@@ -1,0 +1,21 @@
+{
+  "seed": "VX-0042",
+  "generator": "cyber",
+  "archetype": "punk",
+  "outfit": "coat",
+  "gender": "masc",
+  "cellW": 56,
+  "cellH": 84,
+  "directions": 8,
+  "frames": 6,
+  "layout": "rows=directions (front, clockwise), cols=frames",
+  "note": "pixel art bake (56×84 cells, ÷4 from render res); top-down camera (88° pitch)",
+  "cameraView": "topdown",
+  "cameraPitch": 88,
+  "cyberArm": false,
+  "cyberLeg": false,
+  "core": false,
+  "visor": false,
+  "hood": false,
+  "synth": false
+}

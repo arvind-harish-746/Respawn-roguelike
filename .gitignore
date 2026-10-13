@@ -15,3 +15,7 @@ build/
 # IDE / Editor
 .vscode/
 .idea/
+
+# Binaries & Shipped reference games (Excluded from repo)
+endless/
+G-Wars_Stable_a_V0/
