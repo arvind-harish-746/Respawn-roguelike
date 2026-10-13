@@ -1,0 +1,17 @@
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Logs and Caches
+*.log
+.cache/
+
+# Node / Web (if used)
+node_modules/
+dist/
+build/
+.npm/
+
+# IDE / Editor
+.vscode/
+.idea/
