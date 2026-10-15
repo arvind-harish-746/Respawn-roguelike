@@ -56,7 +56,7 @@ export class SpriteManager {
         // 2. Preload Weapon Icon Sprites (from sprites/weapon_sprites/1 Icons)
         const weaponIcons = [
             'Icon28_01.png', 'Icon28_05.png', 'Icon28_10.png', 'Icon28_15.png',
-            'Icon28_20.png', 'Icon28_25.png', 'Icon28_30.png', 'Icon28_35.png'
+            'Icon28_20.png', 'Icon28_25.png', 'Icon28_30.png', 'Icon28_35.png', 'Gun_SineRifle.png', 'Gun_ParabolicMortar.png', 'Gun_ReflectionRay.png', 'Gun_TangentDisc.png', 'Gun_ScalarShotgun.png', 'Gun_FractalCluster.png', 'Gun_AsymptoteLaser.png', 'Gun_DopplerRepeater.png'
         ];
         for (const iconName of weaponIcons) {
             await this.loadWeaponIcon(iconName);
@@ -129,6 +129,14 @@ export class SpriteManager {
             };
             img.src = `sprites/weapon_sprites/1 Icons/${iconFilename}`;
         });
+    }
+
+    getHeldIcon(weaponDef, combatMode) {
+        if (combatMode === 'RANGED' && weaponDef && weaponDef.name) {
+            const gun = 'Gun_' + weaponDef.name.replace(/ /g, '') + '.png';
+            if (this.weaponIcons.has(gun)) return gun;
+        }
+        return weaponDef ? weaponDef.icon : null;
     }
 
     getWeaponIcon(iconFilename) {
@@ -215,8 +223,8 @@ export class SpriteManager {
             ctx.shadowColor = glowColor;
         }
 
-        const w = 32 * scale;
-        const h = 32 * scale;
+        const w = img.width * scale;
+        const h = img.height * scale;
         // Center the weapon at origin
         ctx.drawImage(img, -w / 2, -h / 2, w, h);
 

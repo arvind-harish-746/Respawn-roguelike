@@ -1175,7 +1175,7 @@ export class Game {
 
             // Draw weapon icon
             if (spriteManager && def.icon) {
-                spriteManager.drawWeapon(ctx, def.icon, 38, yPos - 3, 0, 0.55, isActive ? def.color : null);
+                spriteManager.drawWeapon(ctx, spriteManager.getHeldIcon(def, this.combatMode), 38, yPos - 3, 0, 0.55, isActive ? def.color : null);
             }
 
             ctx.fillStyle = isActive ? def.color : '#666666';
