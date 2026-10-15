@@ -300,6 +300,20 @@
                 document.getElementById('hub-panel').style.opacity = '1';
             }
         });
+
+        // URL parameters for direct view/screenshots
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('modal') === 'controls') {
+            modalControls.style.display = 'flex';
+        } else if (urlParams.get('modal') === 'meta') {
+            openMeta();
+        }
+        if (urlParams.get('mode') === 'melee') {
+            game.toggleCombatMode();
+        }
+        if (urlParams.get('avatar') === 'sprite') {
+            btnAvatar.click();
+        }
     </script>
 </body>
 </html>
