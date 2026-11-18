@@ -524,7 +524,7 @@ export class StickmanPlayer {
             // Render Weapon Icon Sprite
             if (weaponDef && spriteMgr && weaponDef.icon) {
                 const flipY = Math.cos(angle) < 0 && combatMode === 'RANGED';
-                spriteMgr.drawWeapon(ctx, weaponDef.icon, gunTipX, gunTipY, weaponAngle, weaponScale, weaponDef.color, flipY);
+                spriteMgr.drawWeapon(ctx, spriteMgr.getHeldIcon(weaponDef, combatMode), gunTipX, gunTipY, weaponAngle, weaponScale, weaponDef.color, flipY);
 
                 // Muzzle Flash in Ranged Mode
                 if (combatMode === 'RANGED' && this.muzzleFlashTimer > 0) {
